@@ -170,3 +170,7 @@ sphinx_*/
 
 # Rust analyzer configuration
 /rust-project.json
+
+# Temporarily added to ignore redundant commit
+include/linux/bpf_ir.h
+kernel/bpf/ir

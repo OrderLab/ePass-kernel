@@ -20981,20 +20981,20 @@ struct btf *bpf_get_btf_vmlinux(void)
 	return btf_vmlinux;
 }
 
-void print_log(struct bpf_prog *prog)
-{
-	u32 len = prog->len;
-	for (u32 i = 0; i <= len; ++i) {
-		struct bpf_insn *insn = &prog->insnsi[i];
-		printk("insn[%d]: code=%d, dst_reg=%d, src_reg=%d, off=%d, imm=%d",
-		       i, insn->code, insn->dst_reg, insn->src_reg, insn->off, insn->imm);
-	}
-}
+// static void print_log(struct bpf_prog *prog)
+// {
+// 	u32 len = prog->len;
+// 	for (u32 i = 0; i <= len; ++i) {
+// 		struct bpf_insn *insn = &prog->insnsi[i];
+// 		printk("insn[%d]: code=%d, dst_reg=%d, src_reg=%d, off=%d, imm=%d",
+// 		       i, insn->code, insn->dst_reg, insn->src_reg, insn->off, insn->imm);
+// 	}
+// }
 
 int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	      __u32 uattr_size)
 {
-	print_log(*prog);
+	// print_log(*prog);
 	u64 start_time = ktime_get_ns();
 	struct bpf_verifier_env *env;
 	int i, len, ret = -EINVAL, err;
@@ -21108,6 +21108,8 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 
 	if (ret == 0 && bpf_prog_is_offloaded(env->prog->aux))
 		ret = bpf_prog_offload_finalize(env);
+
+	// bpf_log(&env->log, "HIHIHI\n");
 
 skip_full_check:
 	kvfree(env->explored_states);
