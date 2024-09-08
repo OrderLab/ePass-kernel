@@ -41,6 +41,8 @@
 #include <linux/trace_events.h>
 #include <net/netfilter/nf_bpf_link.h>
 
+#include "ir_kern.h"
+
 #include <net/tcx.h>
 
 #define IS_FD_ARRAY(map)                                     \
@@ -2757,17 +2759,11 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	// err = bpf_check(&prog, attr, uattr, uattr_size);
 	// if (err < 0)
 	// 	goto free_used_maps;
-	if (type != BPF_PROG_TYPE_SOCKET_FILTER) {
-		struct bpf_ir_env *bpf_ir_env = bpf_ir_init_env();
-		if (!bpf_ir_env) {
-			goto free_used_maps;		
-		}
-		err = bpf_ir_run(bpf_ir_env, prog->insnsi, prog->len);
-		if (err < 0)
-			goto free_used_maps;
-		bpf_ir_print_log_dbg(bpf_ir_env);
-		bpf_ir_free_env(bpf_ir_env);
-	}
+
+	/* run IR pipeline */
+	err = bpf_ir_kern_run(prog, type);
+	if (err < 0)
+		goto free_prog_sec;
 
 	prog = bpf_prog_select_runtime(prog, &err);
 	if (err < 0)
