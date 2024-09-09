@@ -2761,9 +2761,9 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	// 	goto free_used_maps;
 
 	/* run IR pipeline */
-	err = bpf_ir_kern_run(prog, type);
+	err = bpf_ir_kern_run(&prog, type);
 	if (err < 0)
-		goto free_prog_sec;
+		goto free_used_maps;
 
 	prog = bpf_prog_select_runtime(prog, &err);
 	if (err < 0)
