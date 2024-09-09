@@ -2751,19 +2751,22 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	if (err < 0)
 		goto free_prog_sec;
 
-	printk("Loading one program of type %d with size %d\n", type,
-	       prog->len);
-	print_log(prog);
-
-	/* run eBPF verifier */
-	// err = bpf_check(&prog, attr, uattr, uattr_size);
-	// if (err < 0)
-	// 	goto free_used_maps;
+	printk("Before bpf_check, type: %d\n", type);
+	// print_log(prog);
 
 	/* run IR pipeline */
 	err = bpf_ir_kern_run(&prog, type);
+	// printk("err: %d\n", err);
 	if (err < 0)
 		goto free_used_maps;
+
+	/* run eBPF verifier */
+	err = bpf_check(&prog, attr, uattr, uattr_size);
+	if (err < 0)
+		goto free_used_maps;
+
+	printk("After bpf_check\n");
+	print_log(prog);
 
 	prog = bpf_prog_select_runtime(prog, &err);
 	if (err < 0)

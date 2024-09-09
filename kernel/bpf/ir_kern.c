@@ -4,6 +4,17 @@
 #include "linux/bpf_ir.h"
 #include "linux/bpf.h"
 
+static void print_insns_log(struct bpf_insn *insns, u32 len)
+{
+	printk("Program size: %d", len);
+	for (u32 i = 0; i < len; ++i) {
+		struct bpf_insn *insn = &insns[i];
+		__u64 data;
+		memcpy(&data, insn, sizeof(struct bpf_insn));
+		printk("insn[%d]: %llu\n", i, data);
+	}
+}
+
 static inline unsigned int bpf_prog_size(unsigned int proglen)
 {
 	return max(sizeof(struct bpf_prog),
@@ -14,30 +25,39 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, enum bpf_prog_type type)
 {
 	int err = 0;
 	struct bpf_prog *prog = *prog_ptr;
+	printk("Program type: %d", type);
 	if (type != BPF_PROG_TYPE_SOCKET_FILTER) {
 		// TODO: Check if the program is offloaded to the hardware
 		// If not, do no run the pipeline
+
+		print_insns_log(prog->insnsi, prog->len);
+
 		struct bpf_ir_env *env = bpf_ir_init_env();
 		if (!env) {
 			return -ENOMEM;
 		}
 		err = bpf_ir_run(env, prog->insnsi, prog->len);
+		bpf_ir_print_log_dbg(env);
+		printk("Pipeline done, return code: %d", err);
+		print_insns_log(env->insns, env->insn_cnt);
 		if (err < 0)
 			return err;
 
 		/* Kernel Start */
 		prog = bpf_prog_realloc(prog, bpf_prog_size(env->insn_cnt),
-					 GFP_USER);
-		if (prog) {
+					GFP_USER);
+		
+		printk("Prog realloc done with return code: %d", err);
+		if (!prog) {
 			return -ENOMEM;
 		}
 		*prog_ptr = prog;
-		memcpy(prog->insnsi, env->insns, env->insn_cnt * sizeof(struct bpf_insn));
+		memcpy(prog->insnsi, env->insns,
+		       env->insn_cnt * sizeof(struct bpf_insn));
 		prog->len = env->insn_cnt;
 
 		/* Kernel End */
 
-		bpf_ir_print_log_dbg(env);
 		bpf_ir_free_env(env);
 	}
 	return 0;
