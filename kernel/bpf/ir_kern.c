@@ -36,7 +36,10 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, enum bpf_prog_type type)
 		if (!env) {
 			return -ENOMEM;
 		}
-		err = bpf_ir_run(env, prog->insnsi, prog->len);
+		bpf_ir_run(env, prog->insnsi, prog->len);
+		if (env->err) {
+			return env->err;
+		}
 		bpf_ir_print_log_dbg(env);
 		printk("Pipeline done, return code: %d", err);
 		print_insns_log(env->insns, env->insn_cnt);
@@ -46,7 +49,7 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, enum bpf_prog_type type)
 		/* Kernel Start */
 		prog = bpf_prog_realloc(prog, bpf_prog_size(env->insn_cnt),
 					GFP_USER);
-		
+
 		printk("Prog realloc done with return code: %d", err);
 		if (!prog) {
 			return -ENOMEM;
