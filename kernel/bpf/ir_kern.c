@@ -32,7 +32,11 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, enum bpf_prog_type type)
 
 		print_insns_log(prog->insnsi, prog->len);
 
-		struct bpf_ir_env *env = bpf_ir_init_env();
+		struct ir_opts opts = {
+			.debug = 1,
+			.print_mode = BPF_IR_PRINT_BPF,
+		};
+		struct bpf_ir_env *env = bpf_ir_init_env(opts);
 		if (!env) {
 			return -ENOMEM;
 		}
