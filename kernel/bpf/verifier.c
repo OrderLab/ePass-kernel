@@ -16238,8 +16238,8 @@ static int check_btf_line(struct bpf_verifier_env *env,
 
 		if (!prog->insnsi[linfo[i].insn_off].code) {
 			verbose(env,
-				"Invalid insn code at line_info[%u].insn_off\n",
-				i);
+				"Invalid insn code at line_info[%u].insn_off: %u\n",
+				i, linfo[i].insn_off);
 			err = -EINVAL;
 			goto err_free;
 		}
@@ -21084,6 +21084,11 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	ret = check_btf_info(env, attr, uattr);
 	if (ret < 0)
 		goto skip_full_check;
+
+	// struct bpf_line_info *info = env->prog->aux->linfo;
+	// for (int i = 0; i < env->prog->aux->nr_linfo; ++i) {
+	// 	printk("linfo: %u, %u, %u", info[i].insn_off, info[i].line_off, info[i].line_col);
+	// }
 
 	ret = check_attach_btf_id(env);
 	if (ret)

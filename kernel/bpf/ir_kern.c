@@ -21,7 +21,8 @@ static inline unsigned int bpf_prog_size(unsigned int proglen)
 		   offsetof(struct bpf_prog, insns[proglen]));
 }
 
-int bpf_ir_kern_run(struct bpf_prog **prog_ptr, enum bpf_prog_type type)
+int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
+		    enum bpf_prog_type type)
 {
 	int err = 0;
 	struct bpf_prog *prog = *prog_ptr;
@@ -62,6 +63,10 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, enum bpf_prog_type type)
 		memcpy(prog->insnsi, env->insns,
 		       env->insn_cnt * sizeof(struct bpf_insn));
 		prog->len = env->insn_cnt;
+
+		// Remove line info
+		printk("LINEINFO %u, %u", attr->line_info_cnt,
+		       attr->line_info_rec_size);
 
 		/* Kernel End */
 
