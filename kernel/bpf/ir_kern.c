@@ -64,9 +64,11 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		       env->insn_cnt * sizeof(struct bpf_insn));
 		prog->len = env->insn_cnt;
 
-		// Remove line info
-		printk("LINEINFO %u, %u", attr->line_info_cnt,
-		       attr->line_info_rec_size);
+		// Remove line info, otherwise the verifier will complain about that they cannot find those lines
+		// (Also you could remove debug flag when compile ebpf programs)
+		// printk("LINEINFO %u, %u", attr->line_info_cnt,
+		//        attr->line_info_rec_size);
+		attr->line_info_cnt = 0;
 
 		/* Kernel End */
 
