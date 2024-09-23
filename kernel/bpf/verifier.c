@@ -388,6 +388,7 @@ __printf(3, 4) static void verbose_err(int errid, void *private_data,
 	if (!bpf_verifier_log_needed(&env->log))
 		return;
 
+	verbose(env, "error[E%4d]: ", errid);
 	va_start(args, fmt);
 	bpf_verifier_vlog(&env->log, fmt, args);
 	va_end(args);
