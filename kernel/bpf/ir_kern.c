@@ -34,7 +34,7 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 
 		print_insns_log(prog->insnsi, prog->len);
 
-		struct ir_opts opts = {
+		struct bpf_ir_opts opts = {
 			.debug = 1,
 			.print_mode = BPF_IR_PRINT_BPF,
 		};
@@ -42,45 +42,55 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		if (!env) {
 			return -ENOMEM;
 		}
-		bpf_ir_run(env, prog->insnsi, prog->len);
-		if (env->err) {
-			return env->err;
-		}
-		bpf_ir_print_log_dbg(env);
-		printk("Pipeline done, return code: %d", err);
-		print_insns_log(env->insns, env->insn_cnt);
-		if (err < 0)
-			return err;
 
-		/* Kernel Start */
-		prog = bpf_prog_realloc(prog, bpf_prog_size(env->insn_cnt),
-					GFP_USER);
-
-		printk("Prog realloc done with return code: %d", err);
-		if (!prog) {
-			return -ENOMEM;
-		}
-		*prog_ptr = prog;
-		memcpy(prog->insnsi, env->insns,
-		       env->insn_cnt * sizeof(struct bpf_insn));
-		prog->len = env->insn_cnt;
-
-		// Remove line info, otherwise the verifier will complain about that they cannot find those lines
-		// (Also you could remove debug flag when compile ebpf programs)
-		// printk("LINEINFO %u, %u", attr->line_info_cnt,
-		//        attr->line_info_rec_size);
-		attr->line_info_cnt = 0;
-
-		/* Kernel End */
-
-		/* Call the verifier */
+		// Call the verifier
 
 		err = bpf_check(prog_ptr, attr, uattr, uattr_size);
+		if (err) {
+			// Error
+			// Check if the error code could be resolved using the framework
+
+			// TODO
+
+			bpf_ir_run(env, prog->insnsi, prog->len);
+			if (env->err) {
+				return env->err;
+			}
+			bpf_ir_print_log_dbg(env);
+			printk("Pipeline done, return code: %d", err);
+			print_insns_log(env->insns, env->insn_cnt);
+			if (err < 0)
+				return err;
+
+			/* Kernel Start */
+			prog = bpf_prog_realloc(
+				prog, bpf_prog_size(env->insn_cnt), GFP_USER);
+
+			printk("Prog realloc done with return code: %d", err);
+			if (!prog) {
+				return -ENOMEM;
+			}
+			*prog_ptr = prog;
+			memcpy(prog->insnsi, env->insns,
+			       env->insn_cnt * sizeof(struct bpf_insn));
+			prog->len = env->insn_cnt;
+
+			// Remove line info, otherwise the verifier will complain about that they cannot find those lines
+			// (Also you could remove debug flag when compile ebpf programs)
+			// printk("LINEINFO %u, %u", attr->line_info_cnt,
+			//        attr->line_info_rec_size);
+			attr->line_info_cnt = 0;
+			err = bpf_check(prog_ptr, attr, uattr, uattr_size);
+			if (err) {
+				// TODO
+				return err;
+			}
+		}
 
 		bpf_ir_free_env(env);
-	}else{
+	} else {
 		// Filter program, do not run the framework
-		err = bpf_check(&prog, attr, uattr, uattr_size);
+		return bpf_check(&prog, attr, uattr, uattr_size);
 	}
 	return err;
 }

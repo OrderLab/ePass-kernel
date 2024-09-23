@@ -7,6 +7,7 @@
 #include <linux/bpf.h> /* for enum bpf_reg_type */
 #include <linux/btf.h> /* for struct btf and btf_id() */
 #include <linux/filter.h> /* for MAX_BPF_STACK */
+#include <linux/bpf_ir.h>
 #include <linux/tnum.h>
 
 /* Maximum variable offset umax_value permitted when resolving memory accesses.

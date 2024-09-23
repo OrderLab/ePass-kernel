@@ -383,6 +383,7 @@ __printf(3, 4) static void verbose_err(int errid, void *private_data,
 {
 	struct bpf_verifier_env *env = private_data;
 	// Add error id to env
+	env->ir_env->verifier_err = errid;
 	va_list args;
 
 	if (!bpf_verifier_log_needed(&env->log))
