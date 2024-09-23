@@ -22,8 +22,9 @@ static inline unsigned int bpf_prog_size(unsigned int proglen)
 }
 
 int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
-		    enum bpf_prog_type type)
+		    bpfptr_t uattr, u32 uattr_size)
 {
+	enum bpf_prog_type type = attr->prog_type;
 	int err = 0;
 	struct bpf_prog *prog = *prog_ptr;
 	printk("Program type: %d", type);
@@ -72,7 +73,14 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 
 		/* Kernel End */
 
+		/* Call the verifier */
+
+		err = bpf_check(prog_ptr, attr, uattr, uattr_size);
+
 		bpf_ir_free_env(env);
+	}else{
+		// Filter program, do not run the framework
+		err = bpf_check(&prog, attr, uattr, uattr_size);
 	}
-	return 0;
+	return err;
 }

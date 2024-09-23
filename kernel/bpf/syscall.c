@@ -2751,22 +2751,24 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	if (err < 0)
 		goto free_prog_sec;
 
-	printk("Before bpf_check, type: %d\n", type);
-	// print_log(prog);
+	bool ENABLE_IR = true; // Should be changed to an option
+	if (ENABLE_IR) {
+		printk("Before bpf_check, type: %d\n", type);
+		print_log(prog);
 
-	/* run IR pipeline */
-	err = bpf_ir_kern_run(&prog, attr, type);
-	// printk("err: %d\n", err);
-	if (err < 0)
-		goto free_used_maps;
+		/* run IR pipeline */
+		err = bpf_ir_kern_run(&prog, attr, uattr, uattr_size);
+		printk("framework err: %d\n", err);
+		if (err < 0)
+			goto free_used_maps;
 
-	/* run eBPF verifier */
-	err = bpf_check(&prog, attr, uattr, uattr_size);
-	if (err < 0)
-		goto free_used_maps;
-
-	printk("After bpf_check\n");
-	print_log(prog);
+		printk("After bpf_check\n");
+		print_log(prog);
+	} else {
+		err = bpf_check(&prog, attr, uattr, uattr_size);
+		if (err < 0)
+			goto free_used_maps;
+	}
 
 	prog = bpf_prog_select_runtime(prog, &err);
 	if (err < 0)

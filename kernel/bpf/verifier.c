@@ -378,6 +378,21 @@ static const char *ltrim(const char *s)
 	return s;
 }
 
+
+__printf(3, 4) static void verbose_err(int errid, void *private_data, const char *fmt, ...)
+{
+	struct bpf_verifier_env *env = private_data;
+	// Add error id to env
+	va_list args;
+
+	if (!bpf_verifier_log_needed(&env->log))
+		return;
+
+	va_start(args, fmt);
+	bpf_verifier_vlog(&env->log, fmt, args);
+	va_end(args);
+}
+
 __printf(3, 4) static void verbose_linfo(struct bpf_verifier_env *env,
 					 u32 insn_off, const char *prefix_fmt,
 					 ...)

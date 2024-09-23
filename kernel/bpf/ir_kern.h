@@ -3,6 +3,7 @@
 
 #include "linux/bpf.h"
 
-int bpf_ir_kern_run(struct bpf_prog **prog, union bpf_attr *attr, enum bpf_prog_type type);
+int bpf_ir_kern_run(struct bpf_prog **prog, union bpf_attr *attr,
+		    bpfptr_t uattr, u32 uattr_size);
 
 #endif
