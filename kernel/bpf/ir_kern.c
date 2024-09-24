@@ -33,6 +33,12 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		// If not, do no run the pipeline
 
 		print_insns_log(prog->insnsi, prog->len);
+		size_t prog_len = (prog->len);
+		struct bpf_insn *back_up_prog =
+			malloc_proto(sizeof(struct bpf_insn) * prog_len);
+
+		memcpy(back_up_prog, prog->insnsi,
+		       prog_len * sizeof(struct bpf_insn));
 
 		struct bpf_ir_opts opts = {
 			.debug = 1,
@@ -54,22 +60,24 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 
 			// TODO
 
-			bpf_ir_run(env, prog->insnsi, prog->len);
+			bpf_ir_run(env, back_up_prog, prog_len);
+			printk("Pipeline done, return code: %d", env->err);
 			if (env->err) {
+				bpf_ir_free_env(env);
+				free_proto(back_up_prog);
 				return env->err;
 			}
 			bpf_ir_print_log_dbg(env);
-			printk("Pipeline done, return code: %d", err);
 			print_insns_log(env->insns, env->insn_cnt);
-			if (err < 0)
-				return err;
 
-			/* Kernel Start */
+			// Use new insns
 			prog = bpf_prog_realloc(
 				prog, bpf_prog_size(env->insn_cnt), GFP_USER);
 
 			printk("Prog realloc done with return code: %d", err);
 			if (!prog) {
+				bpf_ir_free_env(env);
+				free_proto(back_up_prog);
 				return -ENOMEM;
 			}
 			*prog_ptr = prog;
@@ -86,11 +94,14 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 			if (err) {
 				// TODO
 				printk("Verifier second time error: %d", err);
+				bpf_ir_free_env(env);
+				free_proto(back_up_prog);
 				return err;
 			}
 		}
 
 		bpf_ir_free_env(env);
+		free_proto(back_up_prog);
 	} else {
 		// Filter program, do not run the framework
 		return bpf_check(prog_ptr, attr, uattr, uattr_size, NULL);
