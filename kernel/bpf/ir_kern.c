@@ -45,10 +45,12 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 
 		// Call the verifier
 
-		err = bpf_check(prog_ptr, attr, uattr, uattr_size);
+		err = bpf_check(prog_ptr, attr, uattr, uattr_size, env);
 		if (err) {
 			// Error
 			// Check if the error code could be resolved using the framework
+
+			print_insns_log(prog->insnsi, prog->len);
 
 			// TODO
 
@@ -80,9 +82,10 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 			// printk("LINEINFO %u, %u", attr->line_info_cnt,
 			//        attr->line_info_rec_size);
 			attr->line_info_cnt = 0;
-			err = bpf_check(prog_ptr, attr, uattr, uattr_size);
+			err = bpf_check(prog_ptr, attr, uattr, uattr_size, env);
 			if (err) {
 				// TODO
+				printk("Verifier second time error: %d", err);
 				return err;
 			}
 		}
@@ -90,7 +93,7 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		bpf_ir_free_env(env);
 	} else {
 		// Filter program, do not run the framework
-		return bpf_check(&prog, attr, uattr, uattr_size);
+		return bpf_check(prog_ptr, attr, uattr, uattr_size, NULL);
 	}
 	return err;
 }

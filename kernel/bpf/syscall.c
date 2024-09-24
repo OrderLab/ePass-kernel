@@ -2753,10 +2753,7 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 
 	bool ENABLE_IR = true; // Should be changed to an option
 	if (ENABLE_IR) {
-		printk("Before bpf_check, type: %d\n", type);
-		print_log(prog);
-
-		/* run IR pipeline */
+		// Run the framework
 		err = bpf_ir_kern_run(&prog, attr, uattr, uattr_size);
 		printk("framework err: %d\n", err);
 		if (err < 0)
@@ -2765,7 +2762,7 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 		printk("After bpf_check\n");
 		print_log(prog);
 	} else {
-		err = bpf_check(&prog, attr, uattr, uattr_size);
+		err = bpf_check(&prog, attr, uattr, uattr_size, NULL);
 		if (err < 0)
 			goto free_used_maps;
 	}

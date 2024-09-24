@@ -383,13 +383,15 @@ __printf(3, 4) static void verbose_err(int errid, void *private_data,
 {
 	struct bpf_verifier_env *env = private_data;
 	// Add error id to env
-	env->ir_env->verifier_err = errid;
+	if (env->ir_env) {
+		env->ir_env->verifier_err = errid;
+	}
 	va_list args;
 
 	if (!bpf_verifier_log_needed(&env->log))
 		return;
 
-	verbose(env, "error[E%4d]: ", errid);
+	verbose(env, "error[E%d]: ", errid);
 	va_start(args, fmt);
 	bpf_verifier_vlog(&env->log, fmt, args);
 	va_end(args);
@@ -21348,18 +21350,8 @@ struct btf *bpf_get_btf_vmlinux(void)
 	return btf_vmlinux;
 }
 
-// static void print_log(struct bpf_prog *prog)
-// {
-// 	u32 len = prog->len;
-// 	for (u32 i = 0; i <= len; ++i) {
-// 		struct bpf_insn *insn = &prog->insnsi[i];
-// 		printk("insn[%d]: code=%d, dst_reg=%d, src_reg=%d, off=%d, imm=%d",
-// 		       i, insn->code, insn->dst_reg, insn->src_reg, insn->off, insn->imm);
-// 	}
-// }
-
 int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
-	      __u32 uattr_size)
+	      __u32 uattr_size, void *ir_env)
 {
 	// print_log(*prog);
 	u64 start_time = ktime_get_ns();
@@ -21378,6 +21370,9 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	env = kzalloc(sizeof(struct bpf_verifier_env), GFP_KERNEL);
 	if (!env)
 		return -ENOMEM;
+
+	// Copy IR env
+	env->ir_env = ir_env;
 
 	env->bt.env = env;
 
@@ -21452,11 +21447,6 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	if (ret < 0)
 		goto skip_full_check;
 
-	// struct bpf_line_info *info = env->prog->aux->linfo;
-	// for (int i = 0; i < env->prog->aux->nr_linfo; ++i) {
-	// 	printk("linfo: %u, %u, %u", info[i].insn_off, info[i].line_off, info[i].line_col);
-	// }
-
 	ret = check_attach_btf_id(env);
 	if (ret)
 		goto skip_full_check;
@@ -21481,7 +21471,7 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	if (ret == 0 && bpf_prog_is_offloaded(env->prog->aux))
 		ret = bpf_prog_offload_finalize(env);
 
-	// bpf_log(&env->log, "HIHIHI\n");
+	// Check done!
 
 skip_full_check:
 	kvfree(env->explored_states);
