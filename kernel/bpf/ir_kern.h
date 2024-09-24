@@ -2,6 +2,7 @@
 #define __BPF_IR_KERN_H_
 
 #include "linux/bpf.h"
+#include "linux/bpf_ir.h"
 
 int bpf_ir_kern_run(struct bpf_prog **prog, union bpf_attr *attr,
 		    bpfptr_t uattr, u32 uattr_size);
@@ -632,5 +633,9 @@ enum bpf_verifier_error {
 		415, // Only fentry/fexit/fmod_ret, lsm, iter, uprobe, and struct_ops programs can be sleepable
 
 };
+
+// Kernel passes
+
+void masking_pass(struct bpf_ir_env *env, struct ir_function *fun);
 
 #endif

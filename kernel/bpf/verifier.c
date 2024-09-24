@@ -385,6 +385,13 @@ __printf(3, 4) static void verbose_err(int errid, void *private_data,
 	// Add error id to env
 	if (env->ir_env) {
 		env->ir_env->verifier_err = errid;
+
+		struct bpf_ir_env *irenv = env->ir_env;
+		if (irenv->verifier_err >= 0) {
+			// Run our pipeline
+			irenv->venv = env;
+			bpf_ir_run(irenv);
+		}
 	}
 	va_list args;
 
@@ -21469,13 +21476,6 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 
 	if (ret == 0 && bpf_prog_is_offloaded(env->prog->aux))
 		ret = bpf_prog_offload_finalize(env);
-
-	// Check done!
-	struct bpf_ir_env *irenv = ir_env;
-	if (irenv->verifier_err >= 0) {
-		// Run our pipeline
-		bpf_ir_run(irenv);
-	}
 
 skip_full_check:
 	kvfree(env->explored_states);

@@ -50,16 +50,15 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 			// Error
 			// Check if the error code could be resolved using the framework
 
-			print_insns_log(prog->insnsi, prog->len);
+			// print_insns_log(prog->insnsi, prog->len);
 
-			// TODO
+			bpf_ir_print_log_dbg(env);
 
 			printk("Pipeline done, return code: %d", env->err);
 			if (env->err) {
 				bpf_ir_free_env(env);
 				return err;
 			}
-			bpf_ir_print_log_dbg(env);
 			// print_insns_log(env->insns, env->insn_cnt);
 
 			// Use new insns
