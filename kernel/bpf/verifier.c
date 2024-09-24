@@ -21353,7 +21353,6 @@ struct btf *bpf_get_btf_vmlinux(void)
 int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	      __u32 uattr_size, void *ir_env)
 {
-	// print_log(*prog);
 	u64 start_time = ktime_get_ns();
 	struct bpf_verifier_env *env;
 	int i, len, ret = -EINVAL, err;
@@ -21472,6 +21471,11 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 		ret = bpf_prog_offload_finalize(env);
 
 	// Check done!
+	struct bpf_ir_env *irenv = ir_env;
+	if (irenv->verifier_err >= 0) {
+		// Run our pipeline
+		bpf_ir_run(irenv);
+	}
 
 skip_full_check:
 	kvfree(env->explored_states);
