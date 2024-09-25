@@ -21,6 +21,10 @@ static inline unsigned int bpf_prog_size(unsigned int proglen)
 		   offsetof(struct bpf_prog, insns[proglen]));
 }
 
+static const struct function_pass custom_passes[] = {
+	DEF_FUNC_PASS(masking_pass, "masking", true),
+};
+
 int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		    bpfptr_t uattr, u32 uattr_size)
 {
@@ -37,6 +41,9 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		struct bpf_ir_opts opts = {
 			.debug = 1,
 			.print_mode = BPF_IR_PRINT_BPF,
+			.builtin_enable_pass_num = 0,
+			.custom_pass_num = 1,
+			.custom_passes = custom_passes,
 		};
 		struct bpf_ir_env *env = bpf_ir_init_env(opts, prog->insnsi, prog->len);
 		if (!env) {
