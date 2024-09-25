@@ -173,4 +173,5 @@ sphinx_*/
 
 # Temporarily added to ignore redundant commit
 include/linux/bpf_ir.h
-kernel/bpf/ir
+kernel/bpf/ir/*.c
+kernel/bpf/ir/Makefile
