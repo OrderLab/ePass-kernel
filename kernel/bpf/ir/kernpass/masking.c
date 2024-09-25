@@ -11,8 +11,8 @@ void masking_pass(struct bpf_ir_env *env, struct ir_function *fun)
 	}
 	struct bpf_verifier_state *curstate = venv->cur_state;
 	PRINT_LOG(env, "Verifier stuck on insn: %d\n", venv->insn_idx);
-	if (env->verifier_err == BPF_VERIFIER_ERR_303) {
-		// math between map_value pointer and register with unbounded min value is not allowed
+	if (env->verifier_err >= BPF_VERIFIER_ERR_41 && env->verifier_err <= BPF_VERIFIER_ERR_44) {
+		// memory range error
 		struct bpf_reg_state *regs =
 			curstate->frame[curstate->curframe]->regs;
 		struct bpf_insn raw_insn = env->insns[venv->insn_idx];
@@ -49,10 +49,19 @@ void masking_pass(struct bpf_ir_env *env, struct ir_function *fun)
 		struct ir_basic_block *new_bb =
 			bpf_ir_split_bb(env, fun, insn, true);
 
-		bpf_ir_create_jbin_insn_bb(env, old_bb, insn->values[1],
-					   bpf_ir_value_const32(0), new_bb,
-					   err_bb, IR_INSN_JGT, IR_ALU_64,
-					   INSERT_BACK);
+		bpf_ir_create_jbin_insn_bb(
+			env, old_bb, insn->values[1], bpf_ir_value_const32(100000),
+			new_bb, err_bb, IR_INSN_JGT, IR_ALU_64, INSERT_BACK);
+
+		// struct ir_basic_block *new_bb2 =
+		// 	bpf_ir_split_bb(env, fun, insn, true);
+
+		// bpf_ir_create_jbin_insn_bb(
+		// 	env, new_bb, insn->values[1], bpf_ir_value_const32(100000),
+		// 	new_bb2, err_bb, IR_INSN_JGT, IR_ALU_64, INSERT_BACK);
+
+		bpf_ir_connect_bb(env, old_bb, err_bb);
+		// bpf_ir_connect_bb(env, new_bb, err_bb);
 	}
-	RAISE_ERROR("success");
+	// RAISE_ERROR("success");
 }

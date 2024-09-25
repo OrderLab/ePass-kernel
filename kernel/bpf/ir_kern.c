@@ -45,7 +45,8 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 			.custom_pass_num = 1,
 			.custom_passes = custom_passes,
 		};
-		struct bpf_ir_env *env = bpf_ir_init_env(opts, prog->insnsi, prog->len);
+		struct bpf_ir_env *env =
+			bpf_ir_init_env(opts, prog->insnsi, prog->len);
 		if (!env) {
 			return -ENOMEM;
 		}
@@ -93,6 +94,8 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 				printk("Verifier second time error: %d", err);
 				bpf_ir_free_env(env);
 				return err;
+			} else {
+				printk("Verifier second time success!");
 			}
 		}
 
