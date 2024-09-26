@@ -1,7 +1,13 @@
+#include "linux/bpf_common.h"
 #include "linux/bpf_verifier.h"
 #include "linux/stddef.h"
 #include <linux/bpf_ir.h>
 #include "../../ir_kern.h"
+
+#define CHECK_COND(cond) \
+	if (!(cond)) {   \
+		return;  \
+	}
 
 void masking_pass(struct bpf_ir_env *env, struct ir_function *fun)
 {
@@ -11,57 +17,65 @@ void masking_pass(struct bpf_ir_env *env, struct ir_function *fun)
 	}
 	struct bpf_verifier_state *curstate = venv->cur_state;
 	PRINT_LOG(env, "Verifier stuck on insn: %d\n", venv->insn_idx);
-	if (env->verifier_err >= BPF_VERIFIER_ERR_41 && env->verifier_err <= BPF_VERIFIER_ERR_44) {
+	if (env->verifier_err >= BPF_VERIFIER_ERR_41 &&
+	    env->verifier_err <= BPF_VERIFIER_ERR_44) {
 		// memory range error
+		// Should be a load/store instruction
 		struct bpf_reg_state *regs =
 			curstate->frame[curstate->curframe]->regs;
 		struct bpf_insn raw_insn = env->insns[venv->insn_idx];
 		PRINT_LOG(env, "raw instruction dst: %d, src: %d\n",
 			  raw_insn.dst_reg, raw_insn.src_reg);
-		struct bpf_reg_state *dst = &regs[raw_insn.dst_reg];
+		// struct bpf_reg_state *dst = &regs[raw_insn.dst_reg];
 		struct bpf_reg_state *src = &regs[raw_insn.src_reg];
-		if (!(dst->type == PTR_TO_MAP_VALUE &&
-		      src->type == SCALAR_VALUE)) {
-			// Cannot apply
-			return;
-		}
-		// Add check to src
-		struct ir_insn *insn =
-			bpf_ir_find_ir_insn_by_rawpos(fun, venv->insn_idx);
-		if (!insn) {
-			return;
-		}
-		// Found the IR instruction
-		if (!bpf_ir_is_alu(insn)) {
-			return;
-		}
-		// ALU v0 v1
-		// v1 is srcq
-		struct ir_raw_pos v1p = insn->values[1].raw_pos;
-		if (!v1p.valid || insn->values[1].type != IR_VALUE_INSN) {
-			return;
-		}
-		struct ir_basic_block *err_bb = bpf_ir_create_bb(env, fun);
-		bpf_ir_create_ret_insn_bb(env, err_bb, bpf_ir_value_const32(1),
-					  INSERT_BACK);
-		struct ir_basic_block *old_bb = insn->parent_bb;
-		// Split before insn
-		struct ir_basic_block *new_bb =
-			bpf_ir_split_bb(env, fun, insn, true);
+		CHECK_COND(src->type == PTR_TO_MAP_VALUE);
+		PRINT_LOG(env, "array size %d\n", src->map_ptr->value_size);
+		if (BPF_CLASS(raw_insn.code) == BPF_LDX &&
+		    BPF_MODE(raw_insn.code) == BPF_MEM) {
+			// Regular load
+			// Add check to src
+			struct ir_insn *insn = bpf_ir_find_ir_insn_by_rawpos(
+				fun, venv->insn_idx);
+			CHECK_COND(insn);
+			// Found the IR instruction
+			CHECK_COND(insn->op == IR_INSN_LOADRAW)
+			// LOADRAW src
+			struct ir_value v = insn->addr_val.value;
 
-		bpf_ir_create_jbin_insn_bb(
-			env, old_bb, insn->values[1], bpf_ir_value_const32(100000),
-			new_bb, err_bb, IR_INSN_JGT, IR_ALU_64, INSERT_BACK);
+			CHECK_COND(v.type == IR_VALUE_INSN);
+			struct ir_insn *aluinsn = v.data.insn_d;
+			CHECK_COND(bpf_ir_is_alu(aluinsn));
+			struct ir_value index;
 
-		// struct ir_basic_block *new_bb2 =
-		// 	bpf_ir_split_bb(env, fun, insn, true);
+			if (aluinsn->values[0].data.insn_d->op ==
+			    IR_INSN_LOADIMM_EXTRA) {
+				index = aluinsn->values[1];
+			} else if (aluinsn->values[1].data.insn_d->op ==
+				   IR_INSN_LOADIMM_EXTRA) {
+				index = aluinsn->values[0];
+			} else {
+				return;
+			}
+			struct ir_basic_block *err_bb =
+				bpf_ir_create_bb(env, fun);
+			bpf_ir_create_ret_insn_bb(env, err_bb,
+						  bpf_ir_value_const32(1),
+						  INSERT_BACK);
+			struct ir_basic_block *old_bb = aluinsn->parent_bb;
+			// Split before insn
+			struct ir_basic_block *new_bb =
+				bpf_ir_split_bb(env, fun, aluinsn, true);
 
-		// bpf_ir_create_jbin_insn_bb(
-		// 	env, new_bb, insn->values[1], bpf_ir_value_const32(100000),
-		// 	new_bb2, err_bb, IR_INSN_JGT, IR_ALU_64, INSERT_BACK);
+			u32 max_num = src->map_ptr->value_size -
+				      bpf_ir_sizeof_vr_type(
+					      insn->vr_type); // +1 will error!
 
-		bpf_ir_connect_bb(env, old_bb, err_bb);
-		// bpf_ir_connect_bb(env, new_bb, err_bb);
+			bpf_ir_create_jbin_insn_bb(
+				env, old_bb, index,
+				bpf_ir_value_const32(max_num), new_bb, err_bb,
+				IR_INSN_JGT, IR_ALU_64, INSERT_BACK);
+
+			bpf_ir_connect_bb(env, old_bb, err_bb);
+		}
 	}
-	// RAISE_ERROR("success");
 }
