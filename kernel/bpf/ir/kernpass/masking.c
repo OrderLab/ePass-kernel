@@ -26,7 +26,6 @@ void masking_pass(struct bpf_ir_env *env, struct ir_function *fun)
 		struct bpf_insn raw_insn = env->insns[venv->insn_idx];
 		PRINT_LOG(env, "raw instruction dst: %d, src: %d\n",
 			  raw_insn.dst_reg, raw_insn.src_reg);
-		// struct bpf_reg_state *dst = &regs[raw_insn.dst_reg];
 		struct bpf_reg_state *src = &regs[raw_insn.src_reg];
 		CHECK_COND(src->type == PTR_TO_MAP_VALUE);
 		PRINT_LOG(env, "array size %d\n", src->map_ptr->value_size);
