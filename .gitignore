@@ -172,6 +172,6 @@ sphinx_*/
 /rust-project.json
 
 # Temporarily added to ignore redundant commit
-include/linux/bpf_ir.h
-kernel/bpf/ir/*.c
-kernel/bpf/ir/Makefile
+# include/linux/bpf_ir.h
+# kernel/bpf/ir/*.c
+# kernel/bpf/ir/Makefile
