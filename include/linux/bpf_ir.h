@@ -50,8 +50,14 @@ struct builtin_pass_cfg {
 	char name[30];
 };
 
+struct bpf_ir_reg_opts {
+	u8 max_reg_num; // Deafult: 11. 0:9 are normal, 10 is SP
+	u8 min_callee_reg; // Deafult: 6. BPF_REG_6 to BPF_REG_9 are callee save
+};
+
 struct bpf_ir_opts {
-	u8 debug;
+	bool debug;
+	// struct bpf_ir_reg_opts reg_opts;
 	enum {
 		BPF_IR_PRINT_BPF,
 		BPF_IR_PRINT_DETAIL,
@@ -270,6 +276,11 @@ enum ir_alu_op_type {
 	IR_ALU_64,
 };
 
+enum ir_builtin_constant {
+	IR_BUILTIN_NONE, // Not a builtin constant
+	IR_BUILTIN_BB_INSN_CNT, // The number of instructions in the basic block (computed during code generation)
+};
+
 enum ir_value_type {
 	IR_VALUE_CONSTANT,
 	// A constant value in raw operations to be added during code generation
@@ -304,6 +315,7 @@ struct ir_value {
 	} data;
 	enum ir_value_type type;
 	enum ir_alu_op_type const_type; // Used when type is a constant
+	enum ir_builtin_constant builtin_const;
 	struct ir_raw_pos raw_pos;
 };
 
