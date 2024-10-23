@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 #include <linux/bpf.h>
 #include <linux/bpf_common.h>
 #include <linux/bpf_ir.h>
@@ -11,11 +12,11 @@ static const s8 helper_func_arg_num[200] = {
 
 // All function passes
 static const struct function_pass pre_passes[] = {
-	DEF_FUNC_PASS(remove_trivial_phi, "remove_trivial_phi", true, NULL),
+	DEF_FUNC_PASS(remove_trivial_phi, "remove_trivial_phi", true),
 };
 
 static const struct function_pass post_passes[] = {
-	DEF_FUNC_PASS(add_counter, "add_counter", false, NULL),
+	DEF_FUNC_PASS(add_counter, "add_counter", false),
 	/* CG Preparation Passes */
 	DEF_NON_OVERRIDE_FUNC_PASS(translate_throw, "translate_throw", true),
 	DEF_NON_OVERRIDE_FUNC_PASS(bpf_ir_optimize_ir, "optimize_ir", true),
@@ -1143,8 +1144,7 @@ static void run_passes(struct bpf_ir_env *env, struct ir_function *fun)
 	     ++i) {
 		if (pre_passes[i].non_overridable) {
 			if (pre_passes[i].enabled) {
-				run_single_pass(env, fun, &pre_passes[i],
-						pre_passes[i].default_param);
+				run_single_pass(env, fun, &pre_passes[i], NULL);
 			}
 		} else {
 			bool has_override = false;
@@ -1168,24 +1168,28 @@ static void run_passes(struct bpf_ir_env *env, struct ir_function *fun)
 			}
 			if (!has_override) {
 				if (pre_passes[i].enabled) {
-					run_single_pass(
-						env, fun, &pre_passes[i],
-						pre_passes[i].default_param);
+					run_single_pass(env, fun,
+							&pre_passes[i], NULL);
 				}
 			}
 		}
 		CHECK_ERR();
 	}
 	for (size_t i = 0; i < env->opts.custom_pass_num; ++i) {
-		run_single_pass(env, fun, &env->opts.custom_passes[i],
-				env->opts.custom_passes[i].default_param);
+		if (env->opts.custom_passes[i].pass->enabled &&
+		    env->opts.custom_passes[i].check_apply(env) == 0) {
+			run_single_pass(env, fun,
+					env->opts.custom_passes[i].pass,
+					env->opts.custom_passes[i].param);
+			CHECK_ERR();
+		}
 	}
 	for (size_t i = 0; i < sizeof(post_passes) / sizeof(post_passes[0]);
 	     ++i) {
 		if (post_passes[i].non_overridable) {
 			if (post_passes[i].enabled) {
 				run_single_pass(env, fun, &post_passes[i],
-						post_passes[i].default_param);
+						NULL);
 			}
 		} else {
 			bool has_override = false;
@@ -1209,9 +1213,8 @@ static void run_passes(struct bpf_ir_env *env, struct ir_function *fun)
 			}
 			if (!has_override) {
 				if (post_passes[i].enabled) {
-					run_single_pass(
-						env, fun, &post_passes[i],
-						post_passes[i].default_param);
+					run_single_pass(env, fun,
+							&post_passes[i], NULL);
 				}
 			}
 		}
@@ -1305,8 +1308,6 @@ void bpf_ir_run(struct bpf_ir_env *env)
 	struct ir_function *fun = bpf_ir_lift(env, insns, len);
 	CHECK_ERR();
 
-	// Drop env
-
 	bpf_ir_prog_check(env, fun);
 	CHECK_ERR();
 	print_ir_prog(env, fun);
@@ -1343,6 +1344,7 @@ struct bpf_ir_opts bpf_ir_default_opts(void)
 	opts.custom_pass_num = 0;
 	opts.debug = false;
 	opts.enable_coalesce = false;
+	opts.force = false;
 	return opts;
 }
 

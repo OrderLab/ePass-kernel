@@ -43,17 +43,51 @@ typedef __u64 u64;
 // A environment for communicating with external functions
 
 #define BPF_IR_LOG_SIZE 100000
+#define BPF_IR_MAX_PASS_NAME_SIZE 32
 
 struct function_pass;
+struct bpf_ir_env;
+
+struct custom_pass_cfg {
+	struct function_pass *pass;
+	void *param;
+	// Check if able to apply
+	int (*check_apply)(struct bpf_ir_env *);
+
+	// Load the param
+	int (*param_load)(const char *, void **param);
+	int (*param_unload)(void *param);
+};
+
+#define DEF_CUSTOM_PASS(pass_def, param_loadc, param_unloadc) \
+	{ .pass = pass_def,                                   \
+	  .param = NULL,                                      \
+	  .param_load = param_loadc,                          \
+	  .param_unload = param_unloadc }
 
 struct builtin_pass_cfg {
-	char name[30];
+	char name[BPF_IR_MAX_PASS_NAME_SIZE];
 	void *param;
+
+	// Enable for one run
 	bool enable;
+
+	// Should be enabled for the last run
+	bool enable_cfg;
+
+	// Load the param
+	int (*param_load)(const char *, void **param);
+	int (*param_unload)(void *param);
 };
 
 struct bpf_ir_opts {
+	// Enable debug mode
 	bool debug;
+
+	// Force to use ePass, even if verifier passes
+	bool force;
+
+	// Enable register coalesce optimization
 	bool enable_coalesce;
 
 	enum {
@@ -63,10 +97,10 @@ struct bpf_ir_opts {
 		BPF_IR_PRINT_DUMP,
 	} print_mode;
 
-	const struct function_pass *custom_passes;
+	struct custom_pass_cfg *custom_passes;
 	size_t custom_pass_num;
 
-	const struct builtin_pass_cfg *builtin_pass_cfg;
+	struct builtin_pass_cfg *builtin_pass_cfg;
 	size_t builtin_pass_cfg_num;
 };
 
@@ -1050,25 +1084,20 @@ void translate_throw(struct bpf_ir_env *env, struct ir_function *fun,
 
 struct function_pass {
 	void (*pass)(struct bpf_ir_env *env, struct ir_function *, void *param);
+
 	bool enabled;
 	bool non_overridable;
-	char name[30];
-	void *default_param;
+	char name[BPF_IR_MAX_PASS_NAME_SIZE];
 };
 
-#define DEF_FUNC_PASS(fun, msg, default, param) \
-	{ .pass = fun,                          \
-	  .name = msg,                          \
-	  .enabled = default,                   \
-	  .default_param = param,               \
+#define DEF_FUNC_PASS(fun, msg, en_def) \
+	{ .pass = fun,                  \
+	  .name = msg,                  \
+	  .enabled = en_def,            \
 	  .non_overridable = false }
 
-#define DEF_NON_OVERRIDE_FUNC_PASS(fun, msg, default) \
-	{ .pass = fun,                                \
-	  .name = msg,                                \
-	  .enabled = default,                         \
-	  .default_param = NULL,                      \
-	  .non_overridable = true }
+#define DEF_NON_OVERRIDE_FUNC_PASS(fun, msg, en_def) \
+	{ .pass = fun, .name = msg, .enabled = en_def, .non_overridable = true }
 
 /* Passes End */
 
@@ -1184,5 +1213,14 @@ void bpr_ir_cg_to_cssa(struct bpf_ir_env *env, struct ir_function *fun,
 		       void *param);
 
 /* CG Prepare End */
+
+/* Kern Utils Start */
+
+int bpf_ir_init_opts(struct bpf_ir_env *env, const char *pass_opt,
+		     const char *global_opt);
+
+void bpf_ir_free_opts(struct bpf_ir_env *env);
+
+/* Kern Utils End */
 
 #endif
