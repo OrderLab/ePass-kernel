@@ -21,10 +21,6 @@ static inline unsigned int bpf_prog_size(unsigned int proglen)
 		   offsetof(struct bpf_prog, insns[proglen]));
 }
 
-// static const struct function_pass custom_passes[] = {
-// 	DEF_FUNC_PASS(masking_pass, "masking", true),
-// };
-
 int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		    bpfptr_t uattr, u32 uattr_size, const char *pass_opt,
 		    const char *global_opt)
@@ -33,27 +29,46 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 	int err = 0;
 	struct bpf_prog *prog = *prog_ptr;
 	printk("Program type: %d", type);
-	if (type != BPF_PROG_TYPE_SOCKET_FILTER) {
-		// TODO: Check if the program is offloaded to the hardware
-		// If not, do no run the pipeline
+	if (type == BPF_PROG_TYPE_SOCKET_FILTER) {
+		// Filter program, do not run the framework
+		return bpf_check(prog_ptr, attr, uattr, uattr_size, NULL);
+	}
+	// TODO: Check if the program is offloaded to the hardware
+	// If not, do no run the pipeline
 
-		print_insns_log(prog->insnsi, prog->len);
+	print_insns_log(prog->insnsi, prog->len);
 
-		struct bpf_ir_opts opts = {
-			.debug = 1,
-			.print_mode = BPF_IR_PRINT_BPF,
-			.builtin_enable_pass_num = 0,
-			.custom_pass_num = 1,
-			.custom_passes = custom_passes,
-		};
-		struct bpf_ir_env *env =
-			bpf_ir_init_env(opts, prog->insnsi, prog->len);
-		if (!env) {
-			return -ENOMEM;
-		}
+	struct bpf_ir_opts opts = bpf_ir_default_opts();
 
-		// Call the verifier
+	// Initialize
 
+	struct custom_pass_cfg custom_passes[] = { bpf_ir_kern_masking_pass };
+
+	opts.custom_passes = custom_passes;
+	opts.custom_pass_num = sizeof(custom_passes) / sizeof(custom_passes[0]);
+
+	
+	struct builtin_pass_cfg builtin_pass_cfgs[] = { 
+	 };
+
+	opts.builtin_pass_cfg = builtin_pass_cfgs;
+	opts.builtin_pass_cfg_num = sizeof(builtin_pass_cfgs) / sizeof(builtin_pass_cfgs[0]);
+
+	struct bpf_ir_env *env = bpf_ir_init_env(opts, prog->insnsi, prog->len);
+
+	if (!env) {
+		return -ENOMEM;
+	}
+
+	// Feed the options
+	err = bpf_ir_init_opts(env, pass_opt, global_opt);
+	if (err) {
+		goto clean_op;
+	}
+
+	// Call the verifier
+
+	/*
 		err = bpf_check(prog_ptr, attr, uattr, uattr_size, env);
 		if (err) {
 			// Error
@@ -99,11 +114,9 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 				printk("Verifier second time success!");
 			}
 		}
-
-		bpf_ir_free_env(env);
-	} else {
-		// Filter program, do not run the framework
-		return bpf_check(prog_ptr, attr, uattr, uattr_size, NULL);
-	}
+	*/
+clean_op:
+	bpf_ir_free_opts(env);
+	bpf_ir_free_env(env);
 	return err;
 }

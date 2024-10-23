@@ -637,6 +637,12 @@ enum bpf_verifier_error {
 
 // Kernel passes
 
-void masking_pass(struct bpf_ir_env *env, struct ir_function *fun);
+// Custom passes
+
+extern const struct custom_pass_cfg bpf_ir_kern_masking_pass;
+
+// Built-in passes
+
+
 
 #endif

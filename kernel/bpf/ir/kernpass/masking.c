@@ -9,7 +9,7 @@
 		return;  \
 	}
 
-void masking_pass(struct bpf_ir_env *env, struct ir_function *fun)
+static void masking_pass(struct bpf_ir_env *env, struct ir_function *fun)
 {
 	struct bpf_verifier_env *venv = env->venv;
 	if (!venv) {
@@ -78,3 +78,8 @@ void masking_pass(struct bpf_ir_env *env, struct ir_function *fun)
 		}
 	}
 }
+
+
+const struct custom_pass_cfg bpf_ir_kern_masking_pass =
+	DEF_CUSTOM_PASS(DEF_FUNC_PASS(masking_pass, "masking_pass", false),
+			NULL, NULL);

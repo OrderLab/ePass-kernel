@@ -45,40 +45,8 @@ typedef __u64 u64;
 #define BPF_IR_LOG_SIZE 100000
 #define BPF_IR_MAX_PASS_NAME_SIZE 32
 
-struct function_pass;
-struct bpf_ir_env;
-
-struct custom_pass_cfg {
-	struct function_pass *pass;
-	void *param;
-	// Check if able to apply
-	int (*check_apply)(struct bpf_ir_env *);
-
-	// Load the param
-	int (*param_load)(const char *, void **param);
-	int (*param_unload)(void *param);
-};
-
-#define DEF_CUSTOM_PASS(pass_def, param_loadc, param_unloadc) \
-	{ .pass = pass_def,                                   \
-	  .param = NULL,                                      \
-	  .param_load = param_loadc,                          \
-	  .param_unload = param_unloadc }
-
-struct builtin_pass_cfg {
-	char name[BPF_IR_MAX_PASS_NAME_SIZE];
-	void *param;
-
-	// Enable for one run
-	bool enable;
-
-	// Should be enabled for the last run
-	bool enable_cfg;
-
-	// Load the param
-	int (*param_load)(const char *, void **param);
-	int (*param_unload)(void *param);
-};
+struct custom_pass_cfg;
+struct builtin_pass_cfg;
 
 struct bpf_ir_opts {
 	// Enable debug mode
@@ -1079,6 +1047,8 @@ void remove_trivial_phi(struct bpf_ir_env *env, struct ir_function *fun,
 
 void add_counter(struct bpf_ir_env *env, struct ir_function *fun, void *param);
 
+extern const struct builtin_pass_cfg bpf_ir_kern_add_counter_pass;
+
 void translate_throw(struct bpf_ir_env *env, struct ir_function *fun,
 		     void *param);
 
@@ -1089,6 +1059,46 @@ struct function_pass {
 	bool non_overridable;
 	char name[BPF_IR_MAX_PASS_NAME_SIZE];
 };
+
+struct custom_pass_cfg {
+	struct function_pass pass;
+	void *param;
+	// Check if able to apply
+	int (*check_apply)(struct bpf_ir_env *);
+
+	// Load the param
+	int (*param_load)(const char *, void **param);
+	void (*param_unload)(void *param);
+};
+
+struct builtin_pass_cfg {
+	char name[BPF_IR_MAX_PASS_NAME_SIZE];
+	void *param;
+
+	// Enable for one run
+	bool enable;
+
+	// Should be enabled for the last run
+	bool enable_cfg;
+
+	// Load the param
+	int (*param_load)(const char *, void **param);
+	void (*param_unload)(void *param);
+};
+
+#define DEF_CUSTOM_PASS(pass_def, param_loadc, param_unloadc) \
+	{ .pass = pass_def,                                   \
+	  .param = NULL,                                      \
+	  .param_load = param_loadc,                          \
+	  .param_unload = param_unloadc }
+
+#define DEF_BUILTIN_PASS_CFG(namec, param_loadc, param_unloadc) \
+	{ .name = namec,                                        \
+	  .param = NULL,                                        \
+	  .enable = false,                                      \
+	  .enable_cfg = false,                                  \
+	  .param_load = param_loadc,                            \
+	  .param_unload = param_unloadc }
 
 #define DEF_FUNC_PASS(fun, msg, en_def) \
 	{ .pass = fun,                  \
