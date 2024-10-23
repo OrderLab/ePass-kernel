@@ -2587,17 +2587,6 @@ static bool is_perfmon_prog_type(enum bpf_prog_type prog_type)
 /* last field in 'union bpf_attr' used by this command */
 #define BPF_PROG_LOAD_LAST_FIELD log_true_size
 
-static void __maybe_unused print_log(struct bpf_prog *prog)
-{
-	u32 len = prog->len;
-	for (u32 i = 0; i < len; ++i) {
-		struct bpf_insn *insn = &prog->insnsi[i];
-		__u64 data;
-		memcpy(&data, insn, sizeof(struct bpf_insn));
-		printk("insn[%d]: %llu\n", i, data);
-	}
-}
-
 static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 {
 	enum bpf_prog_type type = attr->prog_type;
@@ -2754,14 +2743,12 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	bool ENABLE_IR = true; // Should be changed to an option
 	if (ENABLE_IR) {
 		// Run the framework
-		err = bpf_ir_kern_run(&prog, attr, uattr, uattr_size);
-		printk("framework err: %d\n", err);
+		// TODO: Change the options to real options
+		err = bpf_ir_kern_run(&prog, attr, uattr, uattr_size, "", "");
 		if (err < 0)
 			goto free_used_maps;
-
-		printk("After bpf_check\n");
-		print_log(prog);
 	} else {
+		// Only run the framework;
 		err = bpf_check(&prog, attr, uattr, uattr_size, NULL);
 		if (err < 0)
 			goto free_used_maps;

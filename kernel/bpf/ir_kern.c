@@ -21,12 +21,13 @@ static inline unsigned int bpf_prog_size(unsigned int proglen)
 		   offsetof(struct bpf_prog, insns[proglen]));
 }
 
-static const struct function_pass custom_passes[] = {
-	DEF_FUNC_PASS(masking_pass, "masking", true),
-};
+// static const struct function_pass custom_passes[] = {
+// 	DEF_FUNC_PASS(masking_pass, "masking", true),
+// };
 
 int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
-		    bpfptr_t uattr, u32 uattr_size)
+		    bpfptr_t uattr, u32 uattr_size, const char *pass_opt,
+		    const char *global_opt)
 {
 	enum bpf_prog_type type = attr->prog_type;
 	int err = 0;

@@ -4,8 +4,9 @@
 #include "linux/bpf.h"
 #include "linux/bpf_ir.h"
 
-int bpf_ir_kern_run(struct bpf_prog **prog, union bpf_attr *attr,
-		    bpfptr_t uattr, u32 uattr_size);
+int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
+		    bpfptr_t uattr, u32 uattr_size, const char *pass_opt,
+		    const char *global_opt);
 
 enum bpf_verifier_error {
 	BPF_VERIFIER_ERR_0 = 0, // %s has to be at a constant offset
