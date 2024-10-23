@@ -116,6 +116,12 @@ static void print_const(struct bpf_ir_env *env, struct ir_value v)
 		// Builtin constant
 		if (v.builtin_const == IR_BUILTIN_BB_INSN_CNT) {
 			PRINT_LOG(env, "__BB_INSN_CNT__");
+		} else if (v.builtin_const == IR_BUILTIN_BB_INSN_CRITICAL_CNT) {
+			PRINT_LOG(env, "__BB_INSN_CRITICAL_CNT__");
+		} else {
+			PRINT_LOG(env, "(unknown)");
+			env->err = -1;
+			return;
 		}
 	}
 }
@@ -372,6 +378,9 @@ void print_ir_insn_full(struct bpf_ir_env *env, struct ir_insn *insn,
 			print_ir_value_full(env, insn->values[0], print_ir);
 		}
 		break;
+	case IR_INSN_THROW:
+		PRINT_LOG(env, "throw");
+		break;
 	case IR_INSN_JA:
 		PRINT_LOG(env, "ja ");
 		print_bb_ptr(env, insn->bb1);
@@ -446,7 +455,7 @@ void print_ir_bb_no_rec(
 	void (*post_insn)(struct bpf_ir_env *env, struct ir_insn *),
 	void (*print_insn_name)(struct bpf_ir_env *env, struct ir_insn *))
 {
-	PRINT_LOG(env, "b%zu:\n", bb->_id);
+	PRINT_LOG(env, "b%zu (flag: 0x%x):\n", bb->_id, bb->flag);
 	struct list_head *p = NULL;
 	list_for_each(p, &bb->ir_insn_head) {
 		struct ir_insn *insn = list_entry(p, struct ir_insn, list_ptr);

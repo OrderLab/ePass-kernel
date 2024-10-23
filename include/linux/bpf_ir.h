@@ -48,28 +48,29 @@ struct function_pass;
 
 struct builtin_pass_cfg {
 	char name[30];
-};
-
-struct bpf_ir_reg_opts {
-	u8 max_reg_num; // Deafult: 11. 0:9 are normal, 10 is SP
-	u8 min_callee_reg; // Deafult: 6. BPF_REG_6 to BPF_REG_9 are callee save
+	void *param;
+	bool enable;
 };
 
 struct bpf_ir_opts {
 	bool debug;
-	// struct bpf_ir_reg_opts reg_opts;
+	bool enable_coalesce;
+
 	enum {
 		BPF_IR_PRINT_BPF,
 		BPF_IR_PRINT_DETAIL,
-		BPF_IR_PRINT_BOTH,
+		BPF_IR_PRINT_BPF_DETAIL,
+		BPF_IR_PRINT_DUMP,
 	} print_mode;
 
 	const struct function_pass *custom_passes;
 	size_t custom_pass_num;
 
-	const struct builtin_pass_cfg *builtin_enable_passes;
-	size_t builtin_enable_pass_num;
+	const struct builtin_pass_cfg *builtin_pass_cfg;
+	size_t builtin_pass_cfg_num;
 };
+
+struct bpf_ir_opts bpf_ir_default_opts(void);
 
 struct bpf_ir_env {
 	// Internal error code
@@ -279,6 +280,7 @@ enum ir_alu_op_type {
 enum ir_builtin_constant {
 	IR_BUILTIN_NONE, // Not a builtin constant
 	IR_BUILTIN_BB_INSN_CNT, // The number of instructions in the basic block (computed during code generation)
+	IR_BUILTIN_BB_INSN_CRITICAL_CNT, // The number of instructions from the nearest critical block
 };
 
 enum ir_value_type {
@@ -381,6 +383,7 @@ enum ir_insn_type {
 	// CALL EXIT
 	IR_INSN_CALL,
 	IR_INSN_RET,
+	IR_INSN_THROW,
 	// JMP
 	IR_INSN_JA,
 	IR_INSN_JEQ,
@@ -516,6 +519,10 @@ struct pre_ir_basic_block {
 	struct ir_insn *incompletePhis[MAX_BPF_REG];
 };
 
+enum ir_bb_flag {
+	IR_BB_HAS_COUNTER = 1 << 0,
+};
+
 /**
     IR Basic Block
  */
@@ -532,6 +539,9 @@ struct ir_basic_block {
 	u8 _visited;
 	size_t _id;
 	void *user_data;
+
+	// Flag
+	u32 flag;
 
 	// Array of struct ir_insn *
 	struct array users;
@@ -903,6 +913,14 @@ struct ir_insn *bpf_ir_create_ret_insn_bb(struct bpf_ir_env *env,
 					  struct ir_value val,
 					  enum insert_position pos);
 
+struct ir_insn *bpf_ir_create_throw_insn(struct bpf_ir_env *env,
+					 struct ir_insn *pos_insn,
+					 enum insert_position pos);
+
+struct ir_insn *bpf_ir_create_throw_insn_bb(struct bpf_ir_env *env,
+					    struct ir_basic_block *pos_bb,
+					    enum insert_position pos);
+
 struct ir_insn *bpf_ir_create_call_insn(struct bpf_ir_env *env,
 					struct ir_insn *pos_insn, s32 fid,
 					enum insert_position pos);
@@ -994,8 +1012,8 @@ struct ir_insn *bpf_ir_create_phi_insn_bb(struct bpf_ir_env *env,
 void bpf_ir_phi_add_operand(struct bpf_ir_env *env, struct ir_insn *insn,
 			    struct ir_basic_block *bb, struct ir_value val);
 
-void bpf_ir_phi_add_call_arg(struct bpf_ir_env *env, struct ir_insn *insn,
-			     struct ir_value val);
+void bpf_ir_add_call_arg(struct bpf_ir_env *env, struct ir_insn *insn,
+			 struct ir_value val);
 
 void bpf_ir_val_add_user(struct bpf_ir_env *env, struct ir_value val,
 			 struct ir_insn *user);
@@ -1022,22 +1040,35 @@ void bpf_ir_insert_at_bb(struct ir_insn *new_insn, struct ir_basic_block *bb,
 
 /* Passes Start */
 
-void remove_trivial_phi(struct bpf_ir_env *env, struct ir_function *fun);
+void remove_trivial_phi(struct bpf_ir_env *env, struct ir_function *fun,
+			void *param);
 
-void cut_bb(struct bpf_ir_env *env, struct ir_function *fun);
+void add_counter(struct bpf_ir_env *env, struct ir_function *fun, void *param);
 
-void add_counter(struct bpf_ir_env *env, struct ir_function *fun);
-
-void add_constraint(struct bpf_ir_env *env, struct ir_function *fun);
+void translate_throw(struct bpf_ir_env *env, struct ir_function *fun,
+		     void *param);
 
 struct function_pass {
-	void (*pass)(struct bpf_ir_env *env, struct ir_function *);
+	void (*pass)(struct bpf_ir_env *env, struct ir_function *, void *param);
 	bool enabled;
+	bool non_overridable;
 	char name[30];
+	void *default_param;
 };
 
-#define DEF_FUNC_PASS(fun, msg, default) \
-	{ .pass = fun, .name = msg, .enabled = default }
+#define DEF_FUNC_PASS(fun, msg, default, param) \
+	{ .pass = fun,                          \
+	  .name = msg,                          \
+	  .enabled = default,                   \
+	  .default_param = param,               \
+	  .non_overridable = false }
+
+#define DEF_NON_OVERRIDE_FUNC_PASS(fun, msg, default) \
+	{ .pass = fun,                                \
+	  .name = msg,                                \
+	  .enabled = default,                         \
+	  .default_param = NULL,                      \
+	  .non_overridable = true }
 
 /* Passes End */
 
@@ -1110,30 +1141,6 @@ enum val_type {
 
 /* Code Gen End */
 
-/* Constraint Start */
-
-enum constraint_type {
-	CONSTRAINT_TYPE_VALUE_EQUAL,
-	CONSTRAINT_TYPE_VALUE_RANGE
-};
-
-struct ir_constraint {
-	enum constraint_type type;
-
-	// Range: [start, end)
-	struct ir_value start;
-	struct ir_value end;
-
-	// Constraint value
-	struct ir_value cval;
-
-	// Real value to be compared
-	struct ir_value val;
-	struct ir_insn *pos;
-};
-
-/* Constraint End */
-
 /* IR Value Start */
 
 bool bpf_ir_value_equal(struct ir_value a, struct ir_value b);
@@ -1157,8 +1164,25 @@ void bpf_ir_change_value(struct bpf_ir_env *env, struct ir_insn *insn,
 
 /* IR Optimization Start */
 
-void bpf_ir_optimize_ir(struct bpf_ir_env *env, struct ir_function *fun);
+void bpf_ir_optimize_ir(struct bpf_ir_env *env, struct ir_function *fun,
+			void *data);
 
 /* IR Optimization End */
+
+/* CG Prepare Start */
+
+void bpf_ir_cg_change_fun_arg(struct bpf_ir_env *env, struct ir_function *fun,
+			      void *param);
+
+void bpf_ir_cg_change_call_pre_cg(struct bpf_ir_env *env,
+				  struct ir_function *fun, void *param);
+
+void bpf_ir_cg_add_stack_offset_pre_cg(struct bpf_ir_env *env,
+				       struct ir_function *fun, void *param);
+
+void bpr_ir_cg_to_cssa(struct bpf_ir_env *env, struct ir_function *fun,
+		       void *param);
+
+/* CG Prepare End */
 
 #endif
