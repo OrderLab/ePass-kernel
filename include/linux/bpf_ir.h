@@ -48,6 +48,12 @@ typedef __u64 u64;
 struct custom_pass_cfg;
 struct builtin_pass_cfg;
 
+struct bpf_ir_raw_opts {
+	u32 enable_bpf_ir;
+	char pass_opt[300];
+	char global_opt[200];
+};
+
 struct bpf_ir_opts {
 	// Enable debug mode
 	bool debug;

@@ -2594,6 +2594,7 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	struct btf *attach_btf = NULL;
 	int err;
 	char license[128];
+	struct bpf_ir_raw_opts *ir_opts = NULL;
 
 	if (CHECK_ATTR(BPF_PROG_LOAD))
 		return -EINVAL;
@@ -2708,6 +2709,12 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 		goto free_prog_sec;
 	license[sizeof(license) - 1] = 0;
 
+	/* copy epass options from user space */
+	if (strncpy_from_bpfptr((void *)ir_opts,
+				make_bpfptr(attr->bpf_ir_opts, uattr.is_kernel),
+				sizeof(struct bpf_ir_raw_opts)) < 0)
+		goto free_prog_sec;
+
 	/* eBPF programs must be GPL compatible to use GPL-ed functions */
 	prog->gpl_compatible = license_is_gpl_compatible(license) ? 1 : 0;
 
@@ -2740,15 +2747,18 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	if (err < 0)
 		goto free_prog_sec;
 
-	bool ENABLE_IR = true; // Should be changed to an option
+	printk("enable: %d", ir_opts->enable_bpf_ir);
+	printk("pass conf: %s", ir_opts->pass_opt);
+	printk("global conf: %s", ir_opts->global_opt);
+
+	bool ENABLE_IR = false; // Should be changed to an option
 	if (ENABLE_IR) {
 		// Run the framework
-		// TODO: Change the options to real options
 		err = bpf_ir_kern_run(&prog, attr, uattr, uattr_size, "", "");
 		if (err < 0)
 			goto free_used_maps;
 	} else {
-		// Only run the framework;
+		// Only run the verifier
 		err = bpf_check(&prog, attr, uattr, uattr_size, NULL);
 		if (err < 0)
 			goto free_used_maps;
