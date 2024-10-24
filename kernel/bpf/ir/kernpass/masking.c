@@ -9,7 +9,8 @@
 		return;  \
 	}
 
-static void masking_pass(struct bpf_ir_env *env, struct ir_function *fun)
+static void masking_pass(struct bpf_ir_env *env, struct ir_function *fun,
+			 void *param)
 {
 	struct bpf_verifier_env *venv = env->venv;
 	if (!venv) {
