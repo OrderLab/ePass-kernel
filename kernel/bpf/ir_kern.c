@@ -28,8 +28,19 @@ bool bpf_ir_canfix(struct bpf_ir_env *env)
 	int err = env->verifier_err;
 
 	for (size_t i = 0; i < env->opts.custom_pass_num; ++i) {
-		if (env->opts.custom_passes[i].check_apply &&
+		if (env->opts.custom_passes[i].pass.enabled &&
+		    env->opts.custom_passes[i].check_apply &&
 		    env->opts.custom_passes[i].check_apply(err)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool has_any_enable_builtin(struct bpf_ir_env *env)
+{
+	for (size_t i = 0; i < env->opts.builtin_pass_cfg_num; ++i) {
+		if (env->opts.builtin_pass_cfg[i].enable_cfg) {
 			return true;
 		}
 	}
@@ -46,6 +57,21 @@ static void enable_builtin(struct bpf_ir_env *env)
 	}
 }
 
+static int reload_insns(struct bpf_prog **prog_ptr, struct bpf_ir_env *env)
+{
+	struct bpf_prog *prog = *prog_ptr;
+	prog = bpf_prog_realloc(prog, bpf_prog_size(env->insn_cnt), GFP_USER);
+
+	if (!prog) {
+		return -ENOMEM;
+	}
+	*prog_ptr = prog;
+	memcpy(prog->insnsi, env->insns,
+	       env->insn_cnt * sizeof(struct bpf_insn));
+	prog->len = env->insn_cnt;
+	return 0;
+}
+
 int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		    bpfptr_t uattr, u32 uattr_size, const char *pass_opt,
 		    const char *global_opt)
@@ -60,8 +86,6 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 	}
 	// TODO: Check if the program is offloaded to the hardware
 	// If not, do no run the pipeline
-
-	print_insns_log(prog->insnsi, prog->len);
 
 	struct bpf_ir_opts opts = bpf_ir_default_opts();
 
@@ -98,14 +122,53 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 	//        attr->line_info_rec_size);
 	attr->line_info_cnt = 0;
 
+	if (env->opts.verbose > 3) {
+		print_insns_log(env->insns, env->insn_cnt);
+	}
+
 	// Iteration
 
 	u32 iter = 0;
 
-	while (true) {
+	for (;;) {
 		iter++;
 		if (iter >= env->opts.max_iteration) {
 			err = -ELOOP;
+			break;
+		}
+
+		// Clean Env
+		bpf_ir_reset_env(env); // Will not clean opts & insns
+
+		err = bpf_check(prog_ptr, attr, uattr, uattr_size, env);
+
+		if (err == 0) {
+			// Pass the verifier
+			break;
+		}
+
+		// Not pass the verifier
+
+		if (!env->executed) {
+			// Not even executed, cannot fix, abort!
+			break;
+		}
+
+		// ePass executed
+
+		// ePass Log
+		bpf_ir_print_log_dbg(env);
+
+		if (env->err) {
+			// Unrecoverable error
+			printk("ePass failed: %d", env->err);
+			break;
+		}
+
+		// ePass successfully generate new code
+
+		err = reload_insns(prog_ptr, env);
+		if (err) {
 			break;
 		}
 	}
@@ -115,54 +178,41 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 	}
 
 	// Run built-in passes
+	if (has_any_enable_builtin(env)) {
+		enable_builtin(env);
+		bpf_ir_reset_env(env);
 
-	/*
-		err = bpf_check(prog_ptr, attr, uattr, uattr_size, env);
-		if (err) {
-			// Error
-			// Check if the error code could be resolved using the framework
-
-			// print_insns_log(prog->insnsi, prog->len);
-
+		bpf_ir_run(env);
+		if (env->err) {
 			bpf_ir_print_log_dbg(env);
-
-			printk("Pipeline done, return code: %d", env->err);
-			if (env->err) {
-				bpf_ir_free_env(env);
-				return err;
-			}
-			// print_insns_log(env->insns, env->insn_cnt);
-
-			// Use new insns
-			prog = bpf_prog_realloc(
-				prog, bpf_prog_size(env->insn_cnt), GFP_USER);
-
-			printk("Prog realloc done with return code: %d", err);
-			if (!prog) {
-				bpf_ir_free_env(env);
-				return -ENOMEM;
-			}
-			*prog_ptr = prog;
-			memcpy(prog->insnsi, env->insns,
-			       env->insn_cnt * sizeof(struct bpf_insn));
-			prog->len = env->insn_cnt;
-
-			// Remove line info, otherwise the verifier will complain about that they cannot find those lines
-			// (Also you could remove debug flag when compile ebpf programs)
-			// printk("LINEINFO %u, %u", attr->line_info_cnt,
-			//        attr->line_info_rec_size);
-			attr->line_info_cnt = 0;
-			err = bpf_check(prog_ptr, attr, uattr, uattr_size, env);
-			if (err) {
-				// TODO
-				printk("Verifier second time error: %d", err);
-				bpf_ir_free_env(env);
-				return err;
-			} else {
-				printk("Verifier second time success!");
-			}
+			printk("Builtin pass failed: %d", env->err);
+			// Unrecoverable error
+			err = env->err;
+			goto clean_op;
 		}
-	*/
+
+		// Successfully run the built-in passes
+
+		err = reload_insns(prog_ptr, env);
+		if (err) {
+			goto clean_op;
+		}
+
+		// Run the verifier the last time to check if the program is valid
+		err = bpf_check(prog_ptr, attr, uattr, uattr_size, NULL);
+
+		if (err) {
+			// Not pass the verifier, abort
+			printk("Builtin pass failed to pass the verifier: %d",
+			       err);
+			goto clean_op;
+		}
+		// Successfully pass the verifier
+		if (env->opts.verbose > 3) {
+			print_insns_log(env->insns, env->insn_cnt);
+		}
+	}
+
 clean_op:
 	bpf_ir_free_opts(env);
 	bpf_ir_free_env(env);

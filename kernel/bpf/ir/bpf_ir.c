@@ -1317,6 +1317,7 @@ struct ir_function *bpf_ir_lift(struct bpf_ir_env *env,
 
 void bpf_ir_run(struct bpf_ir_env *env)
 {
+	env->executed = true;
 	const struct bpf_insn *insns = env->insns;
 	size_t len = env->insn_cnt;
 	struct ir_function *fun = bpf_ir_lift(env, insns, len);
@@ -1375,6 +1376,7 @@ struct bpf_ir_env *bpf_ir_init_env(struct bpf_ir_opts opts,
 	env->err = 0;
 	env->opts = opts;
 	env->verifier_err = -1;
+	env->executed = false;
 	env->venv = NULL;
 
 	return env;

@@ -86,6 +86,9 @@ struct bpf_ir_env {
 	// Verifier error
 	int verifier_err;
 
+	// Whether executed, used in verifier
+	bool executed;
+
 	// Number of instructions
 	size_t insn_cnt;
 
@@ -102,6 +105,8 @@ struct bpf_ir_env {
 };
 
 void bpf_ir_print_to_log(struct bpf_ir_env *env, char *fmt, ...);
+
+void bpf_ir_reset_env(struct bpf_ir_env *env);
 
 #ifndef __KERNEL__
 
