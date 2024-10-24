@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 // bpf_ir kernel functions
 
 #include "ir_kern.h"
@@ -19,6 +20,19 @@ static inline unsigned int bpf_prog_size(unsigned int proglen)
 {
 	return max(sizeof(struct bpf_prog),
 		   offsetof(struct bpf_prog, insns[proglen]));
+}
+
+// Check if can fix the error
+bool bpf_ir_canfix(struct bpf_ir_env *env)
+{
+	int err = env->verifier_err;
+
+	for (size_t i = 0; i < env->opts.custom_pass_num; ++i) {
+		if (env->opts.custom_passes[i].check_apply && env->opts.custom_passes[i].check_apply(err)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,

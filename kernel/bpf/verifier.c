@@ -30,6 +30,7 @@
 #include <net/xdp.h>
 
 #include "disasm.h"
+#include "ir_kern.h"
 
 static const struct bpf_verifier_ops *const bpf_verifier_ops[] = {
 #define BPF_PROG_TYPE(_id, _name, prog_ctx_type, kern_ctx_type) \
@@ -385,11 +386,12 @@ __printf(3, 4) static void verbose_err(int errid, void *private_data,
 	// Add error id to env
 	if (env->ir_env) {
 		env->ir_env->verifier_err = errid;
-
 		struct bpf_ir_env *irenv = env->ir_env;
-		// Run our pipeline
-		irenv->venv = env;
-		bpf_ir_run(irenv);
+		if (bpf_ir_canfix(irenv)) {
+			// If there is a custom pass that could fix this error, run it
+			irenv->venv = env;
+			bpf_ir_run(irenv);
+		}
 	}
 	va_list args;
 

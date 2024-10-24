@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 #ifndef __BPF_IR_KERN_H_
 #define __BPF_IR_KERN_H_
 
@@ -635,14 +636,10 @@ enum bpf_verifier_error {
 
 };
 
+bool bpf_ir_canfix(struct bpf_ir_env *env);
+
 // Kernel passes
 
-// Custom passes
-
 extern const struct custom_pass_cfg bpf_ir_kern_masking_pass;
-
-// Built-in passes
-
-
 
 #endif
