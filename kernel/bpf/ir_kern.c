@@ -47,12 +47,13 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 	opts.custom_passes = custom_passes;
 	opts.custom_pass_num = sizeof(custom_passes) / sizeof(custom_passes[0]);
 
-	
-	struct builtin_pass_cfg builtin_pass_cfgs[] = { 
-	 };
+	struct builtin_pass_cfg builtin_pass_cfgs[] = {
+		bpf_ir_kern_add_counter_pass
+	};
 
 	opts.builtin_pass_cfg = builtin_pass_cfgs;
-	opts.builtin_pass_cfg_num = sizeof(builtin_pass_cfgs) / sizeof(builtin_pass_cfgs[0]);
+	opts.builtin_pass_cfg_num =
+		sizeof(builtin_pass_cfgs) / sizeof(builtin_pass_cfgs[0]);
 
 	struct bpf_ir_env *env = bpf_ir_init_env(opts, prog->insnsi, prog->len);
 

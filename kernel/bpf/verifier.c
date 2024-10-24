@@ -387,11 +387,9 @@ __printf(3, 4) static void verbose_err(int errid, void *private_data,
 		env->ir_env->verifier_err = errid;
 
 		struct bpf_ir_env *irenv = env->ir_env;
-		if (irenv->verifier_err >= 0) {
-			// Run our pipeline
-			irenv->venv = env;
-			bpf_ir_run(irenv);
-		}
+		// Run our pipeline
+		irenv->venv = env;
+		bpf_ir_run(irenv);
 	}
 	va_list args;
 

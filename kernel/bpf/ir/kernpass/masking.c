@@ -79,7 +79,12 @@ static void masking_pass(struct bpf_ir_env *env, struct ir_function *fun)
 	}
 }
 
+static bool check_run(struct bpf_ir_env *env)
+{
+	return env->verifier_err >= BPF_VERIFIER_ERR_41 &&
+	       env->verifier_err <= BPF_VERIFIER_ERR_44;
+}
 
 const struct custom_pass_cfg bpf_ir_kern_masking_pass =
 	DEF_CUSTOM_PASS(DEF_FUNC_PASS(masking_pass, "masking_pass", false),
-			NULL, NULL);
+			check_run, NULL, NULL);
