@@ -28,11 +28,22 @@ bool bpf_ir_canfix(struct bpf_ir_env *env)
 	int err = env->verifier_err;
 
 	for (size_t i = 0; i < env->opts.custom_pass_num; ++i) {
-		if (env->opts.custom_passes[i].check_apply && env->opts.custom_passes[i].check_apply(err)) {
+		if (env->opts.custom_passes[i].check_apply &&
+		    env->opts.custom_passes[i].check_apply(err)) {
 			return true;
 		}
 	}
 	return false;
+}
+
+// Enable all builtin passes specified by enable_cfg
+static void enable_builtin(struct bpf_ir_env *env)
+{
+	for (size_t i = 0; i < env->opts.builtin_pass_cfg_num; ++i) {
+		if (env->opts.builtin_pass_cfg[i].enable_cfg) {
+			env->opts.builtin_pass_cfg[i].enable = true;
+		}
+	}
 }
 
 int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
@@ -81,7 +92,29 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		goto clean_op;
 	}
 
-	// Call the verifier
+	// Remove line info, otherwise the verifier will complain about that they cannot find those lines
+	// (Also you could remove debug flag when compile ebpf programs)
+	// printk("LINEINFO %u, %u", attr->line_info_cnt,
+	//        attr->line_info_rec_size);
+	attr->line_info_cnt = 0;
+
+	// Iteration
+
+	u32 iter = 0;
+
+	while (true) {
+		iter++;
+		if (iter >= env->opts.max_iteration) {
+			err = -ELOOP;
+			break;
+		}
+	}
+
+	if (err) {
+		goto clean_op;
+	}
+
+	// Run built-in passes
 
 	/*
 		err = bpf_check(prog_ptr, attr, uattr, uattr_size, env);

@@ -17961,8 +17961,10 @@ static int do_check(struct bpf_verifier_env *env)
 
 		insn = &insns[env->insn_idx];
 		class = BPF_CLASS(insn->code);
+		++env->insn_processed;
 
-		if (++env->insn_processed > BPF_COMPLEXITY_LIMIT_INSNS) {
+		if (env->insn_processed > BPF_COMPLEXITY_LIMIT_INSNS &&
+		    !bpf_ir_builtin_pass_enabled(env->ir_env, "add_counter")) {
 			verbose_err(
 				363, env,
 				"BPF program is too large. Processed %d insn\n",
