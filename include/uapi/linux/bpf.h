@@ -1413,9 +1413,9 @@ union bpf_attr {
 		__u32 insn_cnt;
 		__aligned_u64 insns;
 		__aligned_u64 license;
-		__u32 enable_epass;
-		__aligned_u64 epass_gopt;
-		__aligned_u64 epass_popt;
+		__u32 enable_epass; /* enable ePass */
+		__aligned_u64 epass_gopt; /* ePass global options */
+		__aligned_u64 epass_popt; /* ePass pass options */
 		__u32 log_level; /* verbosity level of verifier */
 		__u32 log_size; /* size of user buffer */
 		__aligned_u64 log_buf; /* user supplied buffer */
@@ -1451,7 +1451,6 @@ union bpf_attr {
 		 * truncated), or smaller (if log buffer wasn't filled completely).
 		 */
 		__u32 log_true_size;
-		// __aligned_u64 bpf_ir_opts; /* ePass bpf ir options */
 	};
 
 	struct { /* anonymous struct used by BPF_OBJ_* commands */
@@ -7328,6 +7327,5 @@ struct bpf_iter_num {
 	 */
 	__u64 __opaque[1];
 } __attribute__((aligned(8)));
-
 
 #endif /* _UAPI__LINUX_BPF_H__ */
