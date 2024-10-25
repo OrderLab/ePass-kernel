@@ -2594,7 +2594,9 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	struct btf *attach_btf = NULL;
 	int err;
 	char license[128];
-	char ir_data[128];
+
+	char epass_gopt[128];
+	char epass_popt[128];
 
 	if (CHECK_ATTR(BPF_PROG_LOAD))
 		return -EINVAL;
@@ -2709,14 +2711,23 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 		goto free_prog_sec;
 	license[sizeof(license) - 1] = 0;
 
-	printk("HERE %llx", attr->ir_data);
 	/* copy epass options from user space */
-	if (attr->ir_data) {
-		if (strncpy_from_bpfptr(ir_data,
-					make_bpfptr(attr->ir_data,
+	if (attr->enable_epass) {
+		printk("ePass enabled");
+		if (strncpy_from_bpfptr(epass_gopt,
+					make_bpfptr(attr->epass_gopt,
 						    uattr.is_kernel),
-					sizeof(ir_data) - 1) < 0)
+					sizeof(epass_gopt) - 1) < 0)
 			goto free_prog_sec;
+
+		if (strncpy_from_bpfptr(epass_popt,
+					make_bpfptr(attr->epass_popt,
+						    uattr.is_kernel),
+					sizeof(epass_popt) - 1) < 0)
+			goto free_prog_sec;
+
+		printk("epass gopt: %s", epass_gopt);
+		printk("epass popt: %s", epass_popt);
 	}
 
 	/* eBPF programs must be GPL compatible to use GPL-ed functions */
@@ -2751,15 +2762,10 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	if (err < 0)
 		goto free_prog_sec;
 
-	// printk("enable: %d", ir_opts->enable_bpf_ir);
-	// printk("pass conf: %s", ir_opts->pass_opt);
-	// printk("global conf: %s", ir_opts->global_opt);
-	// printk("conf: %s", ir_data);
-
-	bool ENABLE_IR = false; // Should be changed to an option
-	if (ENABLE_IR) {
+	if (attr->enable_epass) {
 		// Run the framework
-		err = bpf_ir_kern_run(&prog, attr, uattr, uattr_size, "", "");
+		err = bpf_ir_kern_run(&prog, attr, uattr, uattr_size,
+				      epass_popt, epass_gopt);
 		if (err < 0)
 			goto free_used_maps;
 	} else {

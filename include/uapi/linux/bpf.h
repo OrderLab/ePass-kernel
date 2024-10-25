@@ -1413,7 +1413,9 @@ union bpf_attr {
 		__u32 insn_cnt;
 		__aligned_u64 insns;
 		__aligned_u64 license;
-		__aligned_u64 ir_data;
+		__u32 enable_epass;
+		__aligned_u64 epass_gopt;
+		__aligned_u64 epass_popt;
 		__u32 log_level; /* verbosity level of verifier */
 		__u32 log_size; /* size of user buffer */
 		__aligned_u64 log_buf; /* user supplied buffer */
