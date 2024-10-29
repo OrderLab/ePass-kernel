@@ -48,12 +48,6 @@ typedef __u64 u64;
 struct custom_pass_cfg;
 struct builtin_pass_cfg;
 
-struct bpf_ir_raw_opts {
-	u32 enable_bpf_ir;
-	char pass_opt[300];
-	char global_opt[200];
-};
-
 struct bpf_ir_opts {
 	// Enable debug mode
 	bool debug;
@@ -841,6 +835,22 @@ struct ir_insn *bpf_ir_create_allocarray_insn_bb(struct bpf_ir_env *env,
 						 enum ir_vr_type type, u32 num,
 						 enum insert_position pos);
 
+struct ir_insn *bpf_ir_create_loadimmextra_insn(
+	struct bpf_ir_env *env, struct ir_insn *pos_insn,
+	enum ir_loadimm_extra_type load_ty, s64 imm, enum insert_position pos);
+
+struct ir_insn *bpf_ir_create_loadimmextra_insn_bb(
+	struct bpf_ir_env *env, struct ir_basic_block *pos_bb,
+	enum ir_loadimm_extra_type load_ty, s64 imm, enum insert_position pos);
+
+struct ir_insn *bpf_ir_create_loadimmextra_insn_cg(
+	struct bpf_ir_env *env, struct ir_insn *pos_insn,
+	enum ir_loadimm_extra_type load_ty, s64 imm, enum insert_position pos);
+
+struct ir_insn *bpf_ir_create_loadimmextra_insn_bb_cg(
+	struct bpf_ir_env *env, struct ir_basic_block *pos_bb,
+	enum ir_loadimm_extra_type load_ty, s64 imm, enum insert_position pos);
+
 struct ir_insn *bpf_ir_create_getelemptr_insn(struct bpf_ir_env *env,
 					      struct ir_insn *pos_insn,
 					      struct ir_insn *alloca_insn,
@@ -852,6 +862,17 @@ struct ir_insn *bpf_ir_create_getelemptr_insn_bb(struct bpf_ir_env *env,
 						 struct ir_insn *alloca_insn,
 						 struct ir_value offset,
 						 enum insert_position pos);
+
+struct ir_insn *bpf_ir_create_getelemptr_insn_cg(struct bpf_ir_env *env,
+						 struct ir_insn *pos_insn,
+						 struct ir_insn *alloca_insn,
+						 struct ir_value offset,
+						 enum insert_position pos);
+
+struct ir_insn *bpf_ir_create_getelemptr_insn_bb_cg(
+	struct bpf_ir_env *env, struct ir_basic_block *pos_bb,
+	struct ir_insn *alloca_insn, struct ir_value offset,
+	enum insert_position pos);
 
 struct ir_insn *bpf_ir_create_store_insn(struct bpf_ir_env *env,
 					 struct ir_insn *pos_insn,
@@ -1066,6 +1087,7 @@ void remove_trivial_phi(struct bpf_ir_env *env, struct ir_function *fun,
 void add_counter(struct bpf_ir_env *env, struct ir_function *fun, void *param);
 
 extern const struct builtin_pass_cfg bpf_ir_kern_add_counter_pass;
+extern const struct builtin_pass_cfg bpf_ir_kern_optimization_pass;
 
 void translate_throw(struct bpf_ir_env *env, struct ir_function *fun,
 		     void *param);
@@ -1074,7 +1096,7 @@ struct function_pass {
 	void (*pass)(struct bpf_ir_env *env, struct ir_function *, void *param);
 
 	bool enabled;
-	bool non_overridable;
+	bool force_enable;
 	char name[BPF_IR_MAX_PASS_NAME_SIZE];
 };
 
@@ -1119,14 +1141,19 @@ struct builtin_pass_cfg {
 	  .param_load = param_loadc,                            \
 	  .param_unload = param_unloadc }
 
-#define DEF_FUNC_PASS(fun, msg, en_def) \
-	{ .pass = fun,                  \
-	  .name = msg,                  \
-	  .enabled = en_def,            \
-	  .non_overridable = false }
+#define DEF_BUILTIN_PASS_ENABLE_CFG(namec, param_loadc, param_unloadc) \
+	{ .name = namec,                                               \
+	  .param = NULL,                                               \
+	  .enable = true,                                              \
+	  .enable_cfg = false,                                         \
+	  .param_load = param_loadc,                                   \
+	  .param_unload = param_unloadc }
 
-#define DEF_NON_OVERRIDE_FUNC_PASS(fun, msg, en_def) \
-	{ .pass = fun, .name = msg, .enabled = en_def, .non_overridable = true }
+#define DEF_FUNC_PASS(fun, msg, en_def) \
+	{ .pass = fun, .name = msg, .enabled = en_def, .force_enable = false }
+
+#define DEF_NON_OVERRIDE_FUNC_PASS(fun, msg) \
+	{ .pass = fun, .name = msg, .enabled = true, .force_enable = true }
 
 /* Passes End */
 
@@ -1245,8 +1272,8 @@ void bpr_ir_cg_to_cssa(struct bpf_ir_env *env, struct ir_function *fun,
 
 /* Kern Utils Start */
 
-int bpf_ir_init_opts(struct bpf_ir_env *env, const char *pass_opt,
-		     const char *global_opt);
+int bpf_ir_init_opts(struct bpf_ir_env *env, const char *global_opt,
+		     const char *pass_opt);
 
 bool bpf_ir_builtin_pass_enabled(struct bpf_ir_env *env, const char *pass_name);
 

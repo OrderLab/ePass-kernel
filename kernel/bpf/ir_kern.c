@@ -111,7 +111,7 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 	}
 
 	// Feed the options
-	err = bpf_ir_init_opts(env, pass_opt, global_opt);
+	err = bpf_ir_init_opts(env, global_opt, pass_opt);
 	if (err) {
 		goto clean_op;
 	}
