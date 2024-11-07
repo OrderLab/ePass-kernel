@@ -64,7 +64,10 @@ static void check_insn(struct bpf_ir_env *env, struct ir_function *fun)
 			}
 			if (insn->op == IR_INSN_STORERAW ||
 			    insn->op == IR_INSN_LOAD ||
-			    insn->op == IR_INSN_RET) {
+			    insn->op == IR_INSN_RET ||
+			    insn->op == IR_INSN_NEG ||
+			    insn->op == IR_INSN_HTOBE ||
+			    insn->op == IR_INSN_HTOLE) {
 				if (!(insn->value_num == 1)) {
 					print_ir_insn_err(env, insn, NULL);
 					RAISE_ERROR(
@@ -72,8 +75,19 @@ static void check_insn(struct bpf_ir_env *env, struct ir_function *fun)
 				}
 			}
 
+			if (insn->op == IR_INSN_HTOBE ||
+			    insn->op == IR_INSN_HTOLE) {
+				if (!(insn->swap_width == 16 ||
+				      insn->swap_width == 32 ||
+				      insn->swap_width == 64)) {
+					print_ir_insn_err(env, insn, NULL);
+					RAISE_ERROR(
+						"BPF_END instruction must have a valid swap width (16, 32 or 64)");
+				}
+			}
+
 			if (insn->op == IR_INSN_STORE ||
-			    (bpf_ir_is_alu(insn)) ||
+			    (bpf_ir_is_bin_alu(insn)) ||
 			    (bpf_ir_is_cond_jmp(insn)) ||
 			    insn->op == IR_INSN_GETELEMPTR) {
 				if (!(insn->value_num == 2)) {
@@ -106,7 +120,8 @@ static void check_insn(struct bpf_ir_env *env, struct ir_function *fun)
 
 			// TODO: Check: users of alloc instructions must be STORE/LOAD
 
-			if (bpf_ir_is_alu(insn) || bpf_ir_is_cond_jmp(insn)) {
+			if (bpf_ir_is_bin_alu(insn) ||
+			    bpf_ir_is_cond_jmp(insn)) {
 				// Binary ALU
 				if (!bpf_ir_valid_alu_type(insn->alu_op)) {
 					print_ir_insn_err(env, insn, NULL);
@@ -135,7 +150,7 @@ static void check_insn(struct bpf_ir_env *env, struct ir_function *fun)
 						print_ir_insn_err(env, insn,
 								  NULL);
 
-						PRINT_LOG(
+						PRINT_LOG_DEBUG(
 							env,
 							"Constant type: %d, operand number: %d\n",
 							val->const_type,
@@ -234,7 +249,8 @@ static void check_jumping(struct bpf_ir_env *env, struct ir_function *fun)
 			if (!found) {
 				// Error
 				print_ir_bb_err(env, bb);
-				PRINT_LOG(env, "Pred: %zu\n", pred_bb->_id);
+				PRINT_LOG_ERROR(env, "Pred: %zu\n",
+						pred_bb->_id);
 				RAISE_ERROR("BB not a succ of its pred");
 			}
 		}
@@ -448,9 +464,9 @@ static void gen_end_bbs(struct bpf_ir_env *env, struct ir_function *fun)
 static void check_err_and_print(struct bpf_ir_env *env, struct ir_function *fun)
 {
 	if (env->err) {
-		PRINT_LOG(env, "----- DUMP IR START -----\n");
+		PRINT_LOG_DEBUG(env, "----- DUMP IR START -----\n");
 		print_ir_prog_notag(env, fun);
-		PRINT_LOG(env, "----- DUMP IR END -----\n");
+		PRINT_LOG_DEBUG(env, "----- DUMP IR END -----\n");
 	}
 }
 

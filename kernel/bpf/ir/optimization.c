@@ -88,7 +88,7 @@ void bpf_ir_optimize_ir(struct bpf_ir_env *env, struct ir_function *fun,
 	struct bpf_ir_optimization_opt *opt = param;
 
 	if (opt && opt->no_opt) {
-		PRINT_LOG(env, "skip optimization\n");
+		PRINT_LOG_DEBUG(env, "skip optimization\n");
 		return;
 	}
 
@@ -96,21 +96,11 @@ void bpf_ir_optimize_ir(struct bpf_ir_env *env, struct ir_function *fun,
 		remove_no_user_insn(env, fun);
 		CHECK_ERR();
 	} else {
-		PRINT_LOG(env, "skip remove_no_user_insn\n");
+		PRINT_LOG_DEBUG(env, "skip remove_no_user_insn\n");
 	}
 
 	remove_unused_alloc(env, fun);
 	CHECK_ERR();
-}
-
-static void get_opt(char *p, char **src)
-{
-	while (**src && **src != ' ') {
-		*p = **src;
-		p++;
-		(*src)++;
-	}
-	*p = '\0';
 }
 
 #define GET_OPT(p, src)               \

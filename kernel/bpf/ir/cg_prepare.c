@@ -5,7 +5,6 @@
 void bpf_ir_cg_change_fun_arg(struct bpf_ir_env *env, struct ir_function *fun,
 			      void *param)
 {
-	// Change function call args
 	for (u8 i = 0; i < MAX_FUNC_ARG; ++i) {
 		if (fun->function_arg[i]->users.num_elem > 0) {
 			// Insert ASSIGN arg[i] at the beginning of the function
@@ -23,6 +22,7 @@ void bpf_ir_cg_change_fun_arg(struct bpf_ir_env *env, struct ir_function *fun,
 void bpf_ir_cg_change_call_pre_cg(struct bpf_ir_env *env,
 				  struct ir_function *fun, void *param)
 {
+	// Change function call args
 	struct ir_basic_block **pos;
 	array_for(pos, fun->reachable_bbs)
 	{
@@ -62,12 +62,11 @@ void bpf_ir_cg_add_stack_offset_pre_cg(struct bpf_ir_env *env,
 			// insn->addr_val.offset += offset;
 			continue;
 		}
-		if (bpf_ir_is_alu(insn) &&
+		if (bpf_ir_is_bin_alu(insn) &&
 		    insn->values[0].type == IR_VALUE_INSN &&
 		    insn->values[0].data.insn_d == fun->sp &&
 		    insn->values[1].type == IR_VALUE_CONSTANT) {
 			// ? = ALU SP CONST
-			// Optimize to ? = ALU CONSTRAWOFF
 			insn->values[1].type = IR_VALUE_CONSTANT_RAWOFF;
 			continue;
 		}
@@ -77,20 +76,16 @@ void bpf_ir_cg_add_stack_offset_pre_cg(struct bpf_ir_env *env,
 		{
 			struct ir_value *val = *pos2;
 			if (val->type == IR_VALUE_INSN &&
-			    val->data.insn_d == fun->sp) {
+			    val->data.insn_d == fun->sp && !val->raw_stack) {
 				// Stack pointer as value
-				struct ir_value new_val;
-				new_val.type = IR_VALUE_CONSTANT_RAWOFF;
-				new_val.const_type = IR_ALU_32;
-				new_val.data.constant_d = 0;
 				// tmp = SP + hole(0)
 				// ... val ==> tmp
 				struct ir_insn *new_insn =
-					bpf_ir_create_bin_insn(env, insn, *val,
-							       new_val,
-							       IR_INSN_ADD,
-							       IR_ALU_64,
-							       INSERT_FRONT);
+					bpf_ir_create_bin_insn(
+						env, insn, *val,
+						bpf_ir_value_const32_rawoff(0),
+						IR_INSN_ADD, IR_ALU_64,
+						INSERT_FRONT);
 				bpf_ir_change_value(
 					env, insn, val,
 					bpf_ir_value_insn(new_insn));
