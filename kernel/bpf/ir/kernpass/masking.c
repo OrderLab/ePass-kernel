@@ -18,7 +18,7 @@ static void masking_pass(struct bpf_ir_env *env, struct ir_function *fun,
 		RAISE_ERROR("Empty verifier env");
 	}
 	struct bpf_verifier_state *curstate = venv->cur_state;
-	PRINT_LOG(env, "Verifier stuck on insn: %d\n", venv->insn_idx);
+	PRINT_LOG_INFO(env, "Verifier stuck on insn: %d\n", venv->insn_idx);
 	if (env->verifier_err >= BPF_VERIFIER_ERR_41 &&
 	    env->verifier_err <= BPF_VERIFIER_ERR_44) {
 		// memory range error
@@ -26,11 +26,11 @@ static void masking_pass(struct bpf_ir_env *env, struct ir_function *fun,
 		struct bpf_reg_state *regs =
 			curstate->frame[curstate->curframe]->regs;
 		struct bpf_insn raw_insn = env->insns[venv->insn_idx];
-		PRINT_LOG(env, "raw instruction dst: %d, src: %d\n",
+		PRINT_LOG_INFO(env, "raw instruction dst: %d, src: %d\n",
 			  raw_insn.dst_reg, raw_insn.src_reg);
 		struct bpf_reg_state *src = &regs[raw_insn.src_reg];
 		CHECK_COND(src->type == PTR_TO_MAP_VALUE);
-		PRINT_LOG(env, "array size %d\n", src->map_ptr->value_size);
+		PRINT_LOG_INFO(env, "array size %d\n", src->map_ptr->value_size);
 		if (BPF_CLASS(raw_insn.code) == BPF_LDX &&
 		    BPF_MODE(raw_insn.code) == BPF_MEM) {
 			// Regular load
@@ -45,7 +45,7 @@ static void masking_pass(struct bpf_ir_env *env, struct ir_function *fun,
 
 			CHECK_COND(v.type == IR_VALUE_INSN);
 			struct ir_insn *aluinsn = v.data.insn_d;
-			CHECK_COND(bpf_ir_is_alu(aluinsn));
+			CHECK_COND(bpf_ir_is_bin_alu(aluinsn));
 			struct ir_value index;
 
 			if (aluinsn->values[0].data.insn_d->op ==
