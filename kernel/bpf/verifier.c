@@ -21482,6 +21482,10 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	if (ret == 0 && bpf_prog_is_offloaded(env->prog->aux))
 		ret = bpf_prog_offload_finalize(env);
 
+	if (env->ir_env) {
+		env->ir_env->verifier_log_end_pos = env->log.end_pos;
+	}
+
 skip_full_check:
 	kvfree(env->explored_states);
 

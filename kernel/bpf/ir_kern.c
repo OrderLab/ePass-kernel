@@ -110,6 +110,8 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		return -ENOMEM;
 	}
 
+	env->prog_type = type;
+
 	// Feed the options
 	err = bpf_ir_init_opts(env, global_opt, pass_opt);
 	if (err) {
@@ -211,6 +213,16 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		if (env->opts.verbose > 3) {
 			print_insns_log(env->insns, env->insn_cnt);
 		}
+	}
+
+	// Try printing something to the ubuf
+	// attr->log_buf
+	char test[] = "\nhello user buffer\n";
+	char *ubuf = (char __user *)(unsigned long)attr->log_buf;
+	if (copy_to_user(ubuf + env->verifier_log_end_pos, test,
+			 sizeof(test))) {
+		err = -EINVAL;
+		goto clean_op;
 	}
 
 clean_op:
