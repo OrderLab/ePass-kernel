@@ -194,7 +194,7 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		enable_builtin(env);
 		bpf_ir_reset_env(env);
 
-		bpf_ir_run(env);
+		bpf_ir_autorun(env);
 		if (env->err) {
 			bpf_ir_print_log_dbg(env);
 			printk("Builtin pass failed: %d", env->err);

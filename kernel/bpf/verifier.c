@@ -390,7 +390,7 @@ __printf(3, 4) static void verbose_err(int errid, void *private_data,
 		if (bpf_ir_canfix(irenv)) {
 			// If there is a custom pass that could fix this error, run it
 			irenv->venv = env;
-			bpf_ir_run(irenv);
+			bpf_ir_autorun(irenv);
 		}
 	}
 	va_list args;
