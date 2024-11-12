@@ -72,10 +72,20 @@ static int reload_insns(struct bpf_prog **prog_ptr, struct bpf_ir_env *env)
 	return 0;
 }
 
+static void print_log_to_ubuf(union bpf_attr *attr, struct bpf_ir_env *env)
+{
+	env->log[env->log_pos] = 0;
+	char *ubuf = (char __user *)(unsigned long)attr->log_buf;
+	if (copy_to_user(ubuf, env->log, env->log_pos + 1)) {
+		env->err = -EINVAL;
+	}
+}
+
 int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		    bpfptr_t uattr, u32 uattr_size, const char *pass_opt,
 		    const char *global_opt)
 {
+	u64 start_time = ktime_get_ns();
 	enum bpf_prog_type type = attr->prog_type;
 	int err = 0;
 	struct bpf_prog *prog = *prog_ptr;
@@ -180,7 +190,7 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 	}
 
 	// Run built-in passes
-	if (has_any_enable_builtin(env)) {
+	if (has_any_enable_builtin(env) || env->opts.force) {
 		enable_builtin(env);
 		bpf_ir_reset_env(env);
 
@@ -188,6 +198,7 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		if (env->err) {
 			bpf_ir_print_log_dbg(env);
 			printk("Builtin pass failed: %d", env->err);
+			print_log_to_ubuf(attr, env);
 			// Unrecoverable error
 			err = env->err;
 			goto clean_op;
@@ -215,15 +226,10 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		}
 	}
 
-	// Try printing something to the ubuf
-	// attr->log_buf
-	char test[] = "\nhello user buffer\n";
-	char *ubuf = (char __user *)(unsigned long)attr->log_buf;
-	if (copy_to_user(ubuf + env->verifier_log_end_pos, test,
-			 sizeof(test))) {
-		err = -EINVAL;
-		goto clean_op;
-	}
+	// Success
+	u64 tot_time = ktime_get_ns() - start_time;
+	PRINT_LOG_DEBUG(env, "ePass Result:\nTotal time: %lluns\n", tot_time);
+	print_log_to_ubuf(attr, env);
 
 clean_op:
 	bpf_ir_free_opts(env);
