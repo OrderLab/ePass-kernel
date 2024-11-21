@@ -1,7 +1,7 @@
 #ifndef _LINUX_BPF_IR_H
 #define _LINUX_BPF_IR_H
 
-#include <linux/bpf.h>
+#include "linux/bpf.h"
 
 #ifndef __KERNEL__
 #include <errno.h>
@@ -56,8 +56,12 @@ struct bpf_ir_opts {
 	// Enable register coalesce optimization
 	bool enable_coalesce;
 
+	bool enable_throw_msg;
+
 	// Verbose level
 	int verbose;
+
+	bool disable_prog_check;
 
 	u32 max_iteration;
 
@@ -702,6 +706,8 @@ void bpf_ir_prog_check(struct bpf_ir_env *env, struct ir_function *fun);
 
 /* Fun End */
 
+void bpf_ir_free_function(struct ir_function *fun);
+
 /* IR Instructions Start */
 
 enum insert_position {
@@ -1096,6 +1102,12 @@ struct ir_insn *bpf_ir_get_first_insn(struct ir_basic_block *bb);
 
 int bpf_ir_bb_empty(struct ir_basic_block *bb);
 
+void bpf_ir_bb_create_error_block(struct bpf_ir_env *env,
+				  struct ir_function *fun, struct ir_insn *insn,
+				  enum insert_position insert_pos,
+				  struct ir_basic_block **dst_err_bb,
+				  struct ir_basic_block **dst_new_bb);
+
 /* BB End */
 
 /* IR Helper Start */
@@ -1245,6 +1257,11 @@ struct builtin_pass_cfg {
 	{ .pass = fun, .name = msg, .enabled = true, .force_enable = true }
 
 /* Passes End */
+
+struct ir_function *bpf_ir_lift(struct bpf_ir_env *env,
+				const struct bpf_insn *insns, size_t len);
+
+void bpf_ir_run(struct bpf_ir_env *env, struct ir_function *fun);
 
 /* Code Gen Start */
 
