@@ -87,5 +87,5 @@ static bool check_run(int err)
 }
 
 const struct custom_pass_cfg bpf_ir_kern_masking_pass =
-	DEF_CUSTOM_PASS(DEF_FUNC_PASS(masking_pass, "masking_all", false),
+	DEF_CUSTOM_PASS(DEF_FUNC_PASS(masking_pass, "masking_puc", false),
 			check_run, NULL, NULL);
