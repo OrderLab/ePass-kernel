@@ -2713,7 +2713,6 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 
 	/* copy epass options from user space */
 	if (attr->enable_epass) {
-		printk("ePass enabled");
 		if (strncpy_from_bpfptr(epass_gopt,
 					make_bpfptr(attr->epass_gopt,
 						    uattr.is_kernel),
@@ -2725,9 +2724,6 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 						    uattr.is_kernel),
 					sizeof(epass_popt) - 1) < 0)
 			goto free_prog_sec;
-
-		printk("epass gopt: %s", epass_gopt);
-		printk("epass popt: %s", epass_popt);
 	}
 
 	/* eBPF programs must be GPL compatible to use GPL-ed functions */

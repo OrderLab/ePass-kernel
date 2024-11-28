@@ -90,12 +90,9 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 	int err = 0;
 	struct bpf_prog *prog = *prog_ptr;
 	printk("Program type: %d", type);
-	if (type == BPF_PROG_TYPE_SOCKET_FILTER) {
-		// Filter program, do not run the framework
-		return bpf_check(prog_ptr, attr, uattr, uattr_size, NULL);
-	}
-	// TODO: Check if the program is offloaded to the hardware
-	// If not, do no run the pipeline
+	// if (type == BPF_PROG_TYPE_SOCKET_FILTER) {
+	// 	return bpf_check(prog_ptr, attr, uattr, uattr_size, NULL);
+	// }
 
 	struct bpf_ir_opts opts = bpf_ir_default_opts();
 
