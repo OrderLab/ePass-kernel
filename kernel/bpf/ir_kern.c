@@ -89,7 +89,6 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 	enum bpf_prog_type type = attr->prog_type;
 	int err = 0;
 	struct bpf_prog *prog = *prog_ptr;
-	printk("Program type: %d", type);
 	// if (type == BPF_PROG_TYPE_SOCKET_FILTER) {
 	// 	return bpf_check(prog_ptr, attr, uattr, uattr_size, NULL);
 	// }
@@ -104,7 +103,9 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 	opts.custom_pass_num = sizeof(custom_passes) / sizeof(custom_passes[0]);
 
 	struct builtin_pass_cfg builtin_pass_cfgs[] = {
-		bpf_ir_kern_add_counter_pass
+		bpf_ir_kern_insn_counter_pass, bpf_ir_kern_optimization_pass,
+		bpf_ir_kern_msan, bpf_ir_kern_div_by_zero_pass,
+		bpf_ir_kern_compaction_pass
 	};
 
 	opts.builtin_pass_cfg = builtin_pass_cfgs;
@@ -125,13 +126,17 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		goto clean_op;
 	}
 
+	if (env->opts.enable_printk_log) {
+		printk("ePass enabled, program type: %d", type);
+	}
+
 	// Remove line info, otherwise the verifier will complain about that they cannot find those lines
 	// (Also you could remove debug flag when compile ebpf programs)
 	// printk("LINEINFO %u, %u", attr->line_info_cnt,
 	//        attr->line_info_rec_size);
 	attr->line_info_cnt = 0;
 
-	if (env->opts.verbose > 3) {
+	if (env->opts.verbose > 3 && env->opts.enable_printk_log) {
 		print_insns_log(env->insns, env->insn_cnt);
 	}
 
@@ -166,11 +171,15 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		// ePass executed
 
 		// ePass Log
-		bpf_ir_print_log_dbg(env);
+		if (env->opts.enable_printk_log) {
+			bpf_ir_print_log_dbg(env);
+		}
 
 		if (env->err) {
 			// Unrecoverable error
-			printk("ePass failed: %d", env->err);
+			if (env->opts.enable_printk_log) {
+				printk("ePass failed: %d", env->err);
+			}
 			break;
 		}
 
@@ -193,8 +202,10 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 
 		bpf_ir_autorun(env);
 		if (env->err) {
-			bpf_ir_print_log_dbg(env);
-			printk("Builtin pass failed: %d", env->err);
+			if (env->opts.enable_printk_log) {
+				bpf_ir_print_log_dbg(env);
+				printk("Builtin pass failed: %d", env->err);
+			}
 			print_log_to_ubuf(attr, env);
 			// Unrecoverable error
 			err = env->err;
@@ -213,12 +224,16 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 
 		if (err) {
 			// Not pass the verifier, abort
-			printk("Builtin pass failed to pass the verifier: %d",
-			       err);
+			if (env->opts.enable_printk_log) {
+				printk("Builtin pass failed to pass the verifier: %d",
+				       err);
+				bpf_ir_print_log_dbg(env);
+				print_insns_log(env->insns, env->insn_cnt);
+			}
 			goto clean_op;
 		}
 		// Successfully pass the verifier
-		if (env->opts.verbose > 3) {
+		if (env->opts.verbose > 3 && env->opts.enable_printk_log) {
 			print_insns_log(env->insns, env->insn_cnt);
 		}
 	}
