@@ -2134,7 +2134,7 @@ static struct bpf_verifier_state *push_stack(struct bpf_verifier_env *env,
 	if (err)
 		goto err;
 	elem->st.speculative |= speculative;
-	if (env->stack_size > BPF_COMPLEXITY_LIMIT_JMP_SEQ) {
+	if (env->stack_size > BPF_COMPLEXITY_LIMIT_JMP_SEQ && !bpf_ir_builtin_pass_enabled(env->ir_env, "jmp_counter")) {
 		verbose(env, "The sequence of %d jumps is too complex.\n",
 			env->stack_size);
 		goto err;
@@ -2673,7 +2673,7 @@ static struct bpf_verifier_state *push_async_cb(struct bpf_verifier_env *env,
 	elem->log_pos = env->log.end_pos;
 	env->head = elem;
 	env->stack_size++;
-	if (env->stack_size > BPF_COMPLEXITY_LIMIT_JMP_SEQ) {
+	if (env->stack_size > BPF_COMPLEXITY_LIMIT_JMP_SEQ && !bpf_ir_builtin_pass_enabled(env->ir_env, "jmp_counter")) {
 		verbose(env,
 			"The sequence of %d jumps is too complex for async cb.\n",
 			env->stack_size);
@@ -6869,6 +6869,10 @@ static int check_stack_access_within_bounds(struct bpf_verifier_env *env,
 					    enum bpf_access_src src,
 					    enum bpf_access_type type)
 {
+	if(bpf_ir_builtin_pass_enabled(env->ir_env, "msan")){
+		// Do not check bound for our trusted program
+		return 0;
+	}
 	struct bpf_reg_state *regs = cur_regs(env);
 	struct bpf_reg_state *reg = regs + regno;
 	struct bpf_func_state *state = func(env, reg);
@@ -17964,7 +17968,7 @@ static int do_check(struct bpf_verifier_env *env)
 		++env->insn_processed;
 
 		if (env->insn_processed > BPF_COMPLEXITY_LIMIT_INSNS &&
-		    !bpf_ir_builtin_pass_enabled(env->ir_env, "add_counter")) {
+		    !bpf_ir_builtin_pass_enabled(env->ir_env, "insn_counter")) {
 			verbose_err(
 				363, env,
 				"BPF program is too large. Processed %d insn\n",
