@@ -2134,7 +2134,8 @@ static struct bpf_verifier_state *push_stack(struct bpf_verifier_env *env,
 	if (err)
 		goto err;
 	elem->st.speculative |= speculative;
-	if (env->stack_size > BPF_COMPLEXITY_LIMIT_JMP_SEQ && !bpf_ir_builtin_pass_enabled(env->ir_env, "jmp_counter")) {
+	if (env->stack_size > BPF_COMPLEXITY_LIMIT_JMP_SEQ &&
+	    !bpf_ir_builtin_pass_enabled(env->ir_env, "jmp_counter")) {
 		verbose(env, "The sequence of %d jumps is too complex.\n",
 			env->stack_size);
 		goto err;
@@ -2673,7 +2674,8 @@ static struct bpf_verifier_state *push_async_cb(struct bpf_verifier_env *env,
 	elem->log_pos = env->log.end_pos;
 	env->head = elem;
 	env->stack_size++;
-	if (env->stack_size > BPF_COMPLEXITY_LIMIT_JMP_SEQ && !bpf_ir_builtin_pass_enabled(env->ir_env, "jmp_counter")) {
+	if (env->stack_size > BPF_COMPLEXITY_LIMIT_JMP_SEQ &&
+	    !bpf_ir_builtin_pass_enabled(env->ir_env, "jmp_counter")) {
 		verbose(env,
 			"The sequence of %d jumps is too complex for async cb.\n",
 			env->stack_size);
@@ -5964,7 +5966,7 @@ static int check_generic_ptr_alignment(struct bpf_verifier_env *env,
 		return 0;
 
 	reg_off = tnum_add(reg->var_off, tnum_const(reg->off + off));
-	if (!tnum_is_aligned(reg_off, size)) {
+	if (!tnum_is_aligned(reg_off, size) && !bpf_ir_builtin_pass_enabled(env->ir_env, "msan")) {
 		char tn_buf[48];
 
 		tnum_strn(tn_buf, sizeof(tn_buf), reg->var_off);
@@ -6869,10 +6871,6 @@ static int check_stack_access_within_bounds(struct bpf_verifier_env *env,
 					    enum bpf_access_src src,
 					    enum bpf_access_type type)
 {
-	if(bpf_ir_builtin_pass_enabled(env->ir_env, "msan")){
-		// Do not check bound for our trusted program
-		return 0;
-	}
 	struct bpf_reg_state *regs = cur_regs(env);
 	struct bpf_reg_state *reg = regs + regno;
 	struct bpf_func_state *state = func(env, reg);
@@ -6892,16 +6890,22 @@ static int check_stack_access_within_bounds(struct bpf_verifier_env *env,
 		min_off = (s64)reg->var_off.value + off;
 		max_off = min_off + access_size;
 	} else {
-		if (reg->smax_value >= BPF_MAX_VAR_OFF ||
-		    reg->smin_value <= -BPF_MAX_VAR_OFF) {
-			verbose_err(
-				86, env,
-				"invalid unbounded variable-offset%s stack R%d\n",
-				err_extra, regno);
-			return -EACCES;
+		if (bpf_ir_builtin_pass_enabled(env->ir_env, "msan")) {
+			// Do not check bound for our trusted program
+			min_off = off;
+			max_off = off + access_size;
+		} else {
+			if (reg->smax_value >= BPF_MAX_VAR_OFF ||
+			    reg->smin_value <= -BPF_MAX_VAR_OFF) {
+				verbose_err(
+					86, env,
+					"invalid unbounded variable-offset%s stack R%d\n",
+					err_extra, regno);
+				return -EACCES;
+			}
+			min_off = reg->smin_value + off;
+			max_off = reg->smax_value + off + access_size;
 		}
-		min_off = reg->smin_value + off;
-		max_off = reg->smax_value + off + access_size;
 	}
 
 	err = check_stack_slot_within_bounds(env, min_off, state, type);

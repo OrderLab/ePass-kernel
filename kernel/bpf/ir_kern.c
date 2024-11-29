@@ -220,7 +220,7 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		}
 
 		// Run the verifier the last time to check if the program is valid
-		err = bpf_check(prog_ptr, attr, uattr, uattr_size, NULL);
+		err = bpf_check(prog_ptr, attr, uattr, uattr_size, env);
 
 		if (err) {
 			// Not pass the verifier, abort
