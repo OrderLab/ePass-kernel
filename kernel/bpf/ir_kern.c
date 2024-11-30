@@ -240,7 +240,11 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 
 	// Success
 	u64 tot_time = ktime_get_ns() - start_time;
-	PRINT_LOG_DEBUG(env, "ePass Result:\nTotal time: %lluns\n", tot_time);
+	PRINT_LOG_DEBUG(
+		env,
+		"ePass Result:\nTotal time: %lluns, ePass time: %lluns (%lluns, %lluns, %lluns)\n",
+		tot_time, env->lift_time + env->run_time + env->cg_time,
+		env->lift_time, env->run_time, env->cg_time);
 	print_log_to_ubuf(attr, env);
 
 clean_op:
