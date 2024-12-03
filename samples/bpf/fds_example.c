@@ -60,7 +60,7 @@ static int bpf_prog_create(const char *object)
 	if (object) {
 		obj = bpf_object__open_file(object, NULL);
 		assert(!libbpf_get_error(obj));
-		err = bpf_object__load(obj);
+		err = bpf_object__load(obj, 0, NULL, NULL);
 		assert(!err);
 		return bpf_program__fd(bpf_object__next_program(obj, NULL));
 	} else {

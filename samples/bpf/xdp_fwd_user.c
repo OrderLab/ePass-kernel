@@ -173,7 +173,7 @@ int main(int argc, char **argv)
 		prog = bpf_object__next_program(obj, NULL);
 		bpf_program__set_type(prog, BPF_PROG_TYPE_XDP);
 
-		err = bpf_object__load(obj);
+		err = bpf_object__load(obj, 0, NULL, NULL);
 		if (err) {
 			printf("Does kernel support devmap lookup?\n");
 			/* If not, the error message will be:

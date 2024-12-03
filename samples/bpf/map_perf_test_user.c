@@ -467,7 +467,7 @@ int main(int argc, char **argv)
 		fixup_map(obj);
 
 	/* load BPF program */
-	if (bpf_object__load(obj)) {
+	if (bpf_object__load(obj, 0, NULL, NULL)) {
 		fprintf(stderr, "ERROR: loading BPF object file failed\n");
 		goto cleanup;
 	}

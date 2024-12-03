@@ -26,7 +26,7 @@ int main(int ac, char **argv)
 	prog = bpf_object__next_program(obj, NULL);
 	bpf_program__set_type(prog, BPF_PROG_TYPE_SOCKET_FILTER);
 
-	err = bpf_object__load(obj);
+	err = bpf_object__load(obj, 0, NULL, NULL);
 	if (err)
 		return 1;
 

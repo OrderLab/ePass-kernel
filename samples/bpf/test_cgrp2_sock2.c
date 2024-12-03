@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 	}
 
 	/* load BPF program */
-	if (bpf_object__load(obj)) {
+	if (bpf_object__load(obj, 0, NULL, NULL)) {
 		printf("ERROR: loading BPF object file failed\n");
 		goto cleanup;
 	}

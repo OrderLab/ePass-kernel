@@ -9,6 +9,13 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		    bpfptr_t uattr, u32 uattr_size, const char *pass_opt,
 		    const char *global_opt);
 
+// Verifier Information Entry
+struct vi_entry {
+	bool valid;
+};
+
+struct vi_entry *get_vi_entry(struct bpf_ir_env *env, u32 insn_idx);
+
 enum bpf_verifier_error {
 	BPF_VERIFIER_ERR_0 = 0, // %s has to be at a constant offset
 	BPF_VERIFIER_ERR_1 = 1, // cannot pass in %s at an offset=%d

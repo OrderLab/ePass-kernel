@@ -72,6 +72,32 @@ static int reload_insns(struct bpf_prog **prog_ptr, struct bpf_ir_env *env)
 	return 0;
 }
 
+static void init_vi_map(struct bpf_ir_env *env)
+{
+	// the insn number must be ready in env
+	size_t cnt = env->insn_cnt;
+	env->verifier_info_map = malloc_proto(cnt * sizeof(struct vi_entry));
+	// Initialize the map
+	for (size_t i = 0; i < cnt; ++i) {
+		get_vi_entry(env, i)->valid = false;
+	}
+}
+
+struct vi_entry *get_vi_entry(struct bpf_ir_env *env, u32 insn_idx)
+{
+	if (!env->verifier_info_map) {
+		CRITICAL("Should not call get_vi_entry without checking NULL");
+	}
+	struct vi_entry *vi_map = env->verifier_info_map;
+	return &vi_map[insn_idx];
+}
+
+static void free_vi_map(struct bpf_ir_env *env)
+{
+	free_proto(env->verifier_info_map);
+	env->verifier_info_map = NULL;
+}
+
 static void print_log_to_ubuf(union bpf_attr *attr, struct bpf_ir_env *env)
 {
 	env->log[env->log_pos] = 0;
@@ -146,7 +172,7 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 
 	for (;;) {
 		iter++;
-		if (iter >= env->opts.max_iteration) {
+		if (iter > env->opts.max_iteration) {
 			err = -ELOOP;
 			break;
 		}
@@ -154,6 +180,7 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		// Clean Env
 		bpf_ir_reset_env(env); // Will not clean opts & insns
 
+		init_vi_map(env);
 		err = bpf_check(prog_ptr, attr, uattr, uattr_size, env);
 
 		if (err == 0) {
@@ -186,12 +213,21 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		// ePass successfully generate new code
 
 		err = reload_insns(prog_ptr, env);
+		free_vi_map(env);
 		if (err) {
 			break;
 		}
 	}
 
 	if (err) {
+		goto clean_op;
+	}
+
+	// Make sure the verifier informatio is ready
+	if (!env->verifier_info_map) {
+		if (env->opts.enable_printk_log) {
+			printk("Verifier not ready!");
+		}
 		goto clean_op;
 	}
 
@@ -218,6 +254,9 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		if (err) {
 			goto clean_op;
 		}
+
+		// Free VI map
+		free_vi_map(env);
 
 		// Run the verifier the last time to check if the program is valid
 		err = bpf_check(prog_ptr, attr, uattr, uattr_size, env);
@@ -250,5 +289,8 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 clean_op:
 	bpf_ir_free_opts(env);
 	bpf_ir_free_env(env);
+	if (env->verifier_info_map) {
+		free_vi_map(env);
+	}
 	return err;
 }
