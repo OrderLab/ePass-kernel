@@ -16,12 +16,6 @@ static void print_insns_log(struct bpf_insn *insns, u32 len)
 	}
 }
 
-static inline unsigned int bpf_prog_size(unsigned int proglen)
-{
-	return max(sizeof(struct bpf_prog),
-		   offsetof(struct bpf_prog, insns[proglen]));
-}
-
 // Check if can fix the error
 bool bpf_ir_canfix(struct bpf_ir_env *env)
 {
