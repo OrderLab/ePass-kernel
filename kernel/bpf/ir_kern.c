@@ -225,6 +225,17 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		goto clean_op;
 	}
 
+	// Debug: test the VI map
+	for (size_t i = 0; i < env->insn_cnt; ++i) {
+		struct vi_entry *entry = get_vi_entry(env, i);
+		if (entry->valid) {
+			if (env->opts.enable_printk_log) {
+				printk("VI[%zu]: valid. src type: %d dst type: %d", i, entry->src_reg_state.type, entry->dst_reg_state.type);
+			}
+		}
+	}
+
+
 	// Run built-in passes
 	if (has_any_enable_builtin(env) || env->opts.force) {
 		enable_builtin(env);
