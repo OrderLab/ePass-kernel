@@ -4,6 +4,7 @@
 
 #include "linux/bpf.h"
 #include "linux/bpf_ir.h"
+#include "linux/bpf_verifier.h"
 
 int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 		    bpfptr_t uattr, u32 uattr_size, const char *pass_opt,
@@ -12,6 +13,8 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 // Verifier Information Entry
 struct vi_entry {
 	bool valid;
+	struct bpf_reg_state src_reg_state;
+	struct bpf_reg_state dst_reg_state;
 };
 
 struct vi_entry *get_vi_entry(struct bpf_ir_env *env, u32 insn_idx);

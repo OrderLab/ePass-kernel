@@ -18320,6 +18320,14 @@ process_bpf_exit:
 			return -EINVAL;
 		}
 
+		// Store insn information in VI map
+		if (env->ir_env && env->ir_env->verifier_info_map) {
+			struct vi_entry *entry = get_vi_entry(env->ir_env, env->insn_idx);
+			entry->dst_reg_state = regs[insn->dst_reg];
+			entry->src_reg_state = regs[insn->src_reg];
+			entry->valid = true;
+		}
+
 		env->insn_idx++;
 	}
 
