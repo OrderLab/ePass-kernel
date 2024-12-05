@@ -5966,7 +5966,8 @@ static int check_generic_ptr_alignment(struct bpf_verifier_env *env,
 		return 0;
 
 	reg_off = tnum_add(reg->var_off, tnum_const(reg->off + off));
-	if (!tnum_is_aligned(reg_off, size) && !bpf_ir_builtin_pass_enabled(env->ir_env, "msan")) {
+	if (!tnum_is_aligned(reg_off, size) &&
+	    !bpf_ir_builtin_pass_enabled(env->ir_env, "msan")) {
 		char tn_buf[48];
 
 		tnum_strn(tn_buf, sizeof(tn_buf), reg->var_off);
@@ -18059,6 +18060,15 @@ static int do_check(struct bpf_verifier_env *env)
 		sanitize_mark_insn_seen(env);
 		prev_insn_idx = env->insn_idx;
 
+		// Store insn information in VI map
+		if (env->ir_env && env->ir_env->verifier_info_map) {
+			struct vi_entry *entry =
+				get_vi_entry(env->ir_env, env->insn_idx);
+			entry->dst_reg_state = regs[insn->dst_reg];
+			entry->src_reg_state = regs[insn->src_reg];
+			entry->valid = true;
+		}
+
 		if (class == BPF_ALU || class == BPF_ALU64) {
 			err = check_alu_op(env, insn);
 			if (err)
@@ -18318,14 +18328,6 @@ process_bpf_exit:
 		} else {
 			verbose_err(373, env, "unknown insn class %d\n", class);
 			return -EINVAL;
-		}
-
-		// Store insn information in VI map
-		if (env->ir_env && env->ir_env->verifier_info_map) {
-			struct vi_entry *entry = get_vi_entry(env->ir_env, env->insn_idx);
-			entry->dst_reg_state = regs[insn->dst_reg];
-			entry->src_reg_state = regs[insn->src_reg];
-			entry->valid = true;
 		}
 
 		env->insn_idx++;
