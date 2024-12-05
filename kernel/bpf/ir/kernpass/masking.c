@@ -64,8 +64,9 @@ static void masking_pass(struct bpf_ir_env *env, struct ir_function *fun,
 						  INSERT_BACK);
 			struct ir_basic_block *old_bb = aluinsn->parent_bb;
 			// Split before insn
+			// FIXME: bpf_ir_split_bb(..., true) error
 			struct ir_basic_block *new_bb =
-				bpf_ir_split_bb(env, fun, aluinsn, true);
+				bpf_ir_split_bb(env, fun, aluinsn, INSERT_FRONT);
 
 			u32 max_num = src->map_ptr->value_size -
 				      bpf_ir_sizeof_vr_type(

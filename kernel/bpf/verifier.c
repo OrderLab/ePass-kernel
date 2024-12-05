@@ -18066,6 +18066,9 @@ static int do_check(struct bpf_verifier_env *env)
 				get_vi_entry(env->ir_env, env->insn_idx);
 			entry->dst_reg_state = regs[insn->dst_reg];
 			entry->src_reg_state = regs[insn->src_reg];
+			for (int i = 0; i < MAX_BPF_FUNC_REG_ARGS; i++) {
+				entry->arg_reg_states[i] = regs[BPF_REG_1 + i];
+			}
 			entry->valid = true;
 		}
 

@@ -15,6 +15,7 @@ struct vi_entry {
 	bool valid;
 	struct bpf_reg_state src_reg_state;
 	struct bpf_reg_state dst_reg_state;
+	struct bpf_reg_state arg_reg_states[MAX_BPF_FUNC_REG_ARGS];
 };
 
 struct vi_entry *get_vi_entry(struct bpf_ir_env *env, u32 insn_idx);
@@ -651,5 +652,6 @@ bool bpf_ir_canfix(struct bpf_ir_env *env);
 // Kernel passes
 
 extern const struct custom_pass_cfg bpf_ir_kern_masking_pass;
+extern const struct custom_pass_cfg bpf_ir_kern_pointer_check;
 
 #endif

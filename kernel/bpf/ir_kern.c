@@ -117,7 +117,7 @@ int bpf_ir_kern_run(struct bpf_prog **prog_ptr, union bpf_attr *attr,
 
 	// Initialize
 
-	struct custom_pass_cfg custom_passes[] = { bpf_ir_kern_masking_pass };
+	struct custom_pass_cfg custom_passes[] = { bpf_ir_kern_masking_pass, bpf_ir_kern_pointer_check };
 
 	opts.custom_passes = custom_passes;
 	opts.custom_pass_num = sizeof(custom_passes) / sizeof(custom_passes[0]);
