@@ -651,8 +651,15 @@ bool bpf_ir_canfix(struct bpf_ir_env *env);
 
 // Kernel passes
 
+extern const struct builtin_pass_cfg bpf_ir_kern_insn_counter_pass;
+extern const struct builtin_pass_cfg bpf_ir_kern_optimization_pass;
+extern const struct builtin_pass_cfg bpf_ir_kern_msan;
+extern const struct builtin_pass_cfg bpf_ir_kern_div_by_zero_pass;
+extern const struct builtin_pass_cfg bpf_ir_kern_compaction_pass;
+extern const struct builtin_pass_cfg bpf_ir_kern_pointer_check;
 extern const struct custom_pass_cfg bpf_ir_kern_masking_pass;
 
-extern const struct builtin_pass_cfg bpf_ir_kern_pointer_check;
+void pointer_check(struct bpf_ir_env *env, struct ir_function *fun,
+			 void *param);
 
 #endif
