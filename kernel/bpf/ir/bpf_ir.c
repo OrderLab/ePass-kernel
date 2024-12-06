@@ -1625,8 +1625,7 @@ static void run_single_pass(struct bpf_ir_env *env, struct ir_function *fun,
 void bpf_ir_run(struct bpf_ir_env *env, struct ir_function *fun)
 {
 	u64 starttime = get_cur_time_ns();
-	for (size_t i = 0; i < pre_passes_cnt;
-	     ++i) {
+	for (size_t i = 0; i < pre_passes_cnt; ++i) {
 		bool has_override = false;
 		for (size_t j = 0; j < env->opts.builtin_pass_cfg_num; ++j) {
 			if (strcmp(env->opts.builtin_pass_cfg[j].name,
@@ -1671,8 +1670,7 @@ void bpf_ir_run(struct bpf_ir_env *env, struct ir_function *fun)
 			CHECK_ERR();
 		}
 	}
-	for (size_t i = 0; i < post_passes_cnt;
-	     ++i) {
+	for (size_t i = 0; i < post_passes_cnt; ++i) {
 		bool has_override = false;
 		for (size_t j = 0; j < env->opts.builtin_pass_cfg_num; ++j) {
 			if (strcmp(env->opts.builtin_pass_cfg[j].name,
