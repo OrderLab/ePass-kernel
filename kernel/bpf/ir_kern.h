@@ -652,6 +652,7 @@ bool bpf_ir_canfix(struct bpf_ir_env *env);
 // Kernel passes
 
 extern const struct custom_pass_cfg bpf_ir_kern_masking_pass;
-extern const struct custom_pass_cfg bpf_ir_kern_pointer_check;
+
+extern const struct builtin_pass_cfg bpf_ir_kern_pointer_check;
 
 #endif

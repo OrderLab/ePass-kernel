@@ -282,7 +282,7 @@ static void helper_check(struct bpf_ir_env *env, struct ir_function *fun,
 							insn->values[i], bpf_ir_value_const64(arg_regs[i].umax_value), new_bb, err_bb,
 							IR_INSN_JGT, IR_ALU_64, INSERT_BACK);
 			// val < umin -> err
-			bpf_ir_create_jbin_insn(env, max_check_insn,
+			prev =bpf_ir_create_jbin_insn(env, max_check_insn,
 							insn->values[i], bpf_ir_value_const64(arg_regs[i].umin_value), new_bb, err_bb,
 							IR_INSN_JLT, IR_ALU_64, INSERT_BACK);
 		}
@@ -291,7 +291,7 @@ static void helper_check(struct bpf_ir_env *env, struct ir_function *fun,
 	bpf_ir_connect_bb(env, bb, err_bb);
 }
 
-static void pointer_check(struct bpf_ir_env *env, struct ir_function *fun,
+void pointer_check(struct bpf_ir_env *env, struct ir_function *fun,
 			 void *param)
 {
 	struct bpf_verifier_env *venv = env->venv;
@@ -335,11 +335,5 @@ static void pointer_check(struct bpf_ir_env *env, struct ir_function *fun,
 	bpf_ir_array_free(&alu_insns);
 }
 
-static bool check_run(int err)
-{
-	return true;
-}
-
-const struct custom_pass_cfg bpf_ir_kern_pointer_check =
-	DEF_CUSTOM_PASS(DEF_FUNC_PASS(pointer_check, "pointer_check", false),
-			check_run, NULL, NULL);
+const struct builtin_pass_cfg bpf_ir_kern_pointer_check =
+	DEF_BUILTIN_PASS_CFG("pointer_check", NULL, NULL);
