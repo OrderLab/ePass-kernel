@@ -128,7 +128,7 @@ static int prog_load(char *prog)
 	}
 
 	/* load BPF program */
-	if (bpf_object__load(obj, 0, NULL, NULL)) {
+	if (bpf_object__load(obj)) {
 		printf("ERROR: loading BPF object file failed\n");
 		goto err;
 	}

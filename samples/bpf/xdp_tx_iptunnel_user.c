@@ -264,7 +264,7 @@ int main(int argc, char **argv)
 	prog = bpf_object__next_program(obj, NULL);
 	bpf_program__set_type(prog, BPF_PROG_TYPE_XDP);
 
-	err = bpf_object__load(obj, 0, NULL, NULL);
+	err = bpf_object__load(obj);
 	if (err) {
 		printf("bpf_object__load(): %s\n", strerror(errno));
 		return 1;

@@ -131,7 +131,7 @@ int main(int ac, char **argv)
 	}
 
 	/* load BPF program */
-	if (bpf_object__load(obj, 0, NULL, NULL)) {
+	if (bpf_object__load(obj)) {
 		fprintf(stderr, "ERROR: loading BPF object file failed\n");
 		goto cleanup;
 	}
