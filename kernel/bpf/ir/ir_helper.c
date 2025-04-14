@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #include <linux/bpf_ir.h>
+#include "ir_cg.h"
 
 int bpf_ir_valid_alu_type(enum ir_alu_op_type type)
 {
@@ -152,6 +153,19 @@ static void print_ir_rawpos(struct bpf_ir_env *env, struct ir_raw_pos pos)
 	}
 }
 
+static void print_vr_pos(struct bpf_ir_env *env, struct ir_vr_pos *pos)
+{
+	if (pos->allocated) {
+		if (pos->spilled) {
+			PRINT_LOG_DEBUG(env, "sp+%d", pos->spilled);
+		} else {
+			PRINT_LOG_DEBUG(env, "r%u", pos->alloc_reg);
+		}
+	} else {
+		PRINT_LOG_DEBUG(env, "(NULL)");
+	}
+}
+
 static void print_ir_value_full(struct bpf_ir_env *env, struct ir_value v,
 				void (*print_ir)(struct bpf_ir_env *env,
 						 struct ir_insn *))
@@ -175,6 +189,9 @@ static void print_ir_value_full(struct bpf_ir_env *env, struct ir_value v,
 		break;
 	case IR_VALUE_UNDEF:
 		PRINT_LOG_DEBUG(env, "undef");
+		break;
+	case IR_VALUE_FLATTEN_DST:
+		print_vr_pos(env, &v.data.vr_pos);
 		break;
 	default:
 		RAISE_ERROR("Unknown IR value type");
@@ -309,9 +326,9 @@ static void print_cond_jmp(struct bpf_ir_env *env, struct ir_insn *insn,
 /**
     Print the IR insn
  */
-void print_ir_insn_full(struct bpf_ir_env *env, struct ir_insn *insn,
-			void (*print_ir)(struct bpf_ir_env *env,
-					 struct ir_insn *))
+static void print_ir_insn_full(struct bpf_ir_env *env, struct ir_insn *insn,
+			       void (*print_ir)(struct bpf_ir_env *env,
+						struct ir_insn *))
 {
 	switch (insn->op) {
 	case IR_INSN_ALLOC:
@@ -445,6 +462,12 @@ void print_ir_insn_full(struct bpf_ir_env *env, struct ir_insn *insn,
 	case IR_INSN_JNE:
 		print_cond_jmp(env, insn, print_ir, "jne");
 		break;
+	case IR_INSN_JSGE:
+		print_cond_jmp(env, insn, print_ir, "jsge");
+		break;
+	case IR_INSN_JSLE:
+		print_cond_jmp(env, insn, print_ir, "jsle");
+		break;
 	case IR_INSN_JSGT:
 		print_cond_jmp(env, insn, print_ir, "jsgt");
 		break;
@@ -457,6 +480,9 @@ void print_ir_insn_full(struct bpf_ir_env *env, struct ir_insn *insn,
 		break;
 	case IR_INSN_ASSIGN:
 		print_ir_value_full(env, insn->values[0], print_ir);
+		break;
+	case IR_INSN_REG:
+		PRINT_LOG_DEBUG(env, "(REG)");
 		break;
 	default:
 		PRINT_LOG_ERROR(env, "Insn code: %d\n", insn->op);
@@ -525,32 +551,19 @@ void print_ir_bb_no_rec(
 	}
 }
 
-void print_ir_bb(struct bpf_ir_env *env, struct ir_basic_block *bb,
+void print_ir_bb(struct bpf_ir_env *env, struct ir_function *fun,
 		 void (*post_bb)(struct bpf_ir_env *env,
 				 struct ir_basic_block *),
 		 void (*post_insn)(struct bpf_ir_env *env, struct ir_insn *),
 		 void (*print_insn_name)(struct bpf_ir_env *env,
 					 struct ir_insn *))
 {
-	if (bb->_visited) {
-		return;
-	}
-	bb->_visited = 1;
-	print_ir_bb_no_rec(env, bb, post_bb, post_insn, print_insn_name);
-	for (size_t i = 0; i < bb->succs.num_elem; ++i) {
-		struct ir_basic_block *next =
-			((struct ir_basic_block **)(bb->succs.data))[i];
-		print_ir_bb(env, next, post_bb, post_insn, print_insn_name);
-	}
-}
-
-void print_ir_prog_reachable(struct bpf_ir_env *env, struct ir_function *fun)
-{
 	struct ir_basic_block **pos;
 	array_for(pos, fun->reachable_bbs)
 	{
 		struct ir_basic_block *bb = *pos;
-		print_ir_bb_no_rec(env, bb, NULL, NULL, NULL);
+		print_ir_bb_no_rec(env, bb, post_bb, post_insn,
+				   print_insn_name);
 	}
 }
 
@@ -618,12 +631,12 @@ void print_bb_succ(struct bpf_ir_env *env, struct ir_basic_block *bb)
 void print_ir_prog(struct bpf_ir_env *env, struct ir_function *fun)
 {
 	tag_ir(fun);
-	print_ir_bb(env, fun->entry, NULL, NULL, NULL);
+	print_ir_bb(env, fun, NULL, NULL, NULL);
 }
 
 void print_ir_prog_notag(struct bpf_ir_env *env, struct ir_function *fun)
 {
-	print_ir_bb(env, fun->entry, NULL, NULL, NULL);
+	print_ir_bb(env, fun, NULL, NULL, NULL);
 }
 
 void print_ir_dst(struct bpf_ir_env *env, struct ir_insn *insn)
@@ -659,6 +672,13 @@ void print_ir_alloc(struct bpf_ir_env *env, struct ir_insn *insn)
 	}
 }
 
+void print_ir_flatten(struct bpf_ir_env *env, struct ir_insn *insn)
+{
+	struct ir_insn_norm_extra *norm = insn_norm(insn);
+	struct ir_vr_pos *pos = &norm->pos;
+	print_vr_pos(env, pos);
+}
+
 void print_ir_prog_advanced(
 	struct bpf_ir_env *env, struct ir_function *fun,
 	void (*post_bb)(struct bpf_ir_env *env, struct ir_basic_block *),
@@ -666,7 +686,7 @@ void print_ir_prog_advanced(
 	void (*print_insn_name)(struct bpf_ir_env *env, struct ir_insn *))
 {
 	tag_ir(fun);
-	print_ir_bb(env, fun->entry, post_bb, post_insn, print_insn_name);
+	print_ir_bb(env, fun, post_bb, post_insn, print_insn_name);
 }
 
 void print_ir_insn_err_full(struct bpf_ir_env *env, struct ir_insn *insn,
