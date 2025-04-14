@@ -2595,8 +2595,8 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	int err;
 	char license[128];
 
-	char epass_gopt[128];
-	char epass_popt[128];
+	char epass_gopt[128] = { 0 };
+	char epass_popt[128] = { 0 };
 
 	if (CHECK_ATTR(BPF_PROG_LOAD))
 		return -EINVAL;
@@ -2713,17 +2713,21 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 
 	/* copy epass options from user space */
 	if (attr->enable_epass) {
-		if (strncpy_from_bpfptr(epass_gopt,
-					make_bpfptr(attr->epass_gopt,
-						    uattr.is_kernel),
-					sizeof(epass_gopt) - 1) < 0)
-			goto free_prog_sec;
+		if (attr->epass_gopt) {
+			if (strncpy_from_bpfptr(epass_gopt,
+						make_bpfptr(attr->epass_gopt,
+							    uattr.is_kernel),
+						sizeof(epass_gopt) - 1) < 0)
+				goto free_prog_sec;
+		}
 
-		if (strncpy_from_bpfptr(epass_popt,
-					make_bpfptr(attr->epass_popt,
-						    uattr.is_kernel),
-					sizeof(epass_popt) - 1) < 0)
-			goto free_prog_sec;
+		if (attr->epass_popt) {
+			if (strncpy_from_bpfptr(epass_popt,
+						make_bpfptr(attr->epass_popt,
+							    uattr.is_kernel),
+						sizeof(epass_popt) - 1) < 0)
+				goto free_prog_sec;
+		}
 	}
 
 	/* eBPF programs must be GPL compatible to use GPL-ed functions */
