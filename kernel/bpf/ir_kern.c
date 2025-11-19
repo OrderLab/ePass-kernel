@@ -2,6 +2,8 @@
 // bpf_ir kernel functions
 
 #include "ir_kern.h"
+#include "ir/ir.h"
+#include "ir/ir_cg.h"
 #include "linux/bpf_ir.h"
 #include "linux/bpf.h"
 

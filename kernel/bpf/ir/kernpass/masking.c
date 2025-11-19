@@ -4,6 +4,7 @@
 #include "linux/stddef.h"
 #include <linux/bpf_ir.h>
 #include "../../ir_kern.h"
+#include "../ir.h"
 
 #define CHECK_COND(cond) \
 	if (!(cond)) {   \
