@@ -1316,6 +1316,11 @@ enum bpf_perf_event_type {
 /* The verifier internal test flag. Behavior is undefined */
 #define BPF_F_TEST_REG_INVARIANTS	(1U << 7)
 
+/* Request ePass for this program (BPF_PROG_LOAD; see epass_gopt). Under
+ * the "optin" policy mode, ePass runs only on requested programs.
+ */
+#define BPF_F_EPASS		(1U << 30)
+
 /* link_create.kprobe_multi.flags used in LINK_CREATE command for
  * BPF_TRACE_KPROBE_MULTI attach type to create return probe.
  */
@@ -1669,6 +1674,20 @@ union bpf_attr {
 		 * verification.
 		 */
 		__s32		keyring_id;
+		/* ePass (CONFIG_BPF_EPASS): compiler passes run before the
+		 * verifier under the administrator policy
+		 * (kernel.bpf_epass_policy). epass_gopt/epass_popt are the
+		 * global and pass option strings (not NUL-terminated). With
+		 * epass_ir_len, the program is an ePass binary IR blob at
+		 * epass_ir and insn_cnt must be 0. Pass options and IR need
+		 * CAP_BPF.
+		 */
+		__aligned_u64	epass_gopt;
+		__aligned_u64	epass_popt;
+		__aligned_u64	epass_ir;
+		__u32		epass_gopt_len;
+		__u32		epass_popt_len;
+		__u32		epass_ir_len;
 	};
 
 	struct { /* anonymous struct used by BPF_OBJ_* commands */
