@@ -39,6 +39,22 @@ config BPF_SYSCALL
 	  Enable the bpf() system call that allows to manipulate BPF programs
 	  and maps via file descriptors.
 
+config BPF_EPASS
+	bool "ePass: in-kernel eBPF compiler passes at program load"
+	depends on BPF_SYSCALL && RUST
+	help
+	  Run the ePass compiler on eBPF programs in BPF_PROG_LOAD, before the
+	  verifier: lift the bytecode (or take ePass IR from the loader) into
+	  SSA, run compiler passes under an administrator policy
+	  (sysctl kernel.bpf_epass_policy), and generate new bytecode, which
+	  the verifier then checks as usual.
+
+	  Loaders opt in with BPF_F_EPASS and the epass_* fields of
+	  BPF_PROG_LOAD. The default policy ("mode=optin") leaves every other
+	  program untouched.
+
+	  If unsure, say N.
+
 config BPF_JIT
 	bool "Enable BPF Just In Time compiler"
 	depends on BPF

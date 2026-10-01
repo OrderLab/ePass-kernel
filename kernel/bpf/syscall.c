@@ -7,6 +7,7 @@
 #include <linux/bpf_trace.h>
 #include <linux/bpf_lirc.h>
 #include <linux/bpf_verifier.h>
+#include <linux/bpf_epass.h>
 #include <linux/bsearch.h>
 #include <linux/btf.h>
 #include <linux/hex.h>
@@ -2967,7 +2968,7 @@ int __init __used bpf_multi_func(void) { return 0; }
 BTF_ID_LIST_GLOBAL_SINGLE(bpf_multi_func_btf_id, func, bpf_multi_func)
 
 /* last field in 'union bpf_attr' used by this command */
-#define BPF_PROG_LOAD_LAST_FIELD keyring_id
+#define BPF_PROG_LOAD_LAST_FIELD epass_ir_len
 
 static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, struct bpf_log_attr *attr_log)
 {
@@ -2991,7 +2992,8 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, struct bpf_log_at
 				 BPF_F_XDP_HAS_FRAGS |
 				 BPF_F_XDP_DEV_BOUND_ONLY |
 				 BPF_F_TEST_REG_INVARIANTS |
-				 BPF_F_TOKEN_FD))
+				 BPF_F_TOKEN_FD |
+				 BPF_F_EPASS))
 		return -EINVAL;
 
 	bpf_prog_load_fixup_attach_type(attr);
@@ -3030,7 +3032,8 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, struct bpf_log_at
 	if (sysctl_unprivileged_bpf_disabled && !bpf_cap)
 		goto put_token;
 
-	if (attr->insn_cnt == 0 ||
+	/* ePass IR input carries no instructions: they come from ePass. */
+	if ((attr->insn_cnt == 0 && !bpf_epass_ir_input(attr)) ||
 	    attr->insn_cnt > (bpf_cap ? BPF_COMPLEXITY_LIMIT_INSNS : BPF_MAXINSNS)) {
 		err = -E2BIG;
 		goto put_token;
@@ -3094,7 +3097,7 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, struct bpf_log_at
 	}
 
 	/* plain bpf_prog allocation */
-	prog = bpf_prog_alloc(bpf_prog_size(attr->insn_cnt), GFP_USER);
+	prog = bpf_prog_alloc(bpf_prog_size(max(attr->insn_cnt, 1U)), GFP_USER);
 	if (!prog) {
 		if (dst_prog)
 			bpf_prog_put(dst_prog);
@@ -3189,12 +3192,18 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, struct bpf_log_at
 	if (err < 0)
 		goto free_prog;
 
+	/* ePass may replace the program; the LSM and the verifier see the result */
+	err = bpf_epass_prog_load(&prog, attr, uattr, attr_log, bpf_cap);
+	if (err)
+		goto free_prog;
+
 	err = security_bpf_prog_load(prog, attr, token, uattr.is_kernel);
 	if (err)
 		goto free_prog;
 
 	/* run eBPF verifier */
 	err = bpf_check(&prog, attr, uattr, attr_log);
+	bpf_epass_prog_done(prog);
 	if (err < 0)
 		goto free_used_maps;
 
@@ -3238,6 +3247,7 @@ free_used_maps:
 	return err;
 
 free_prog:
+	bpf_epass_prog_done(prog);
 	free_uid(prog->aux->user);
 	if (prog->aux->attach_btf)
 		btf_put(prog->aux->attach_btf);

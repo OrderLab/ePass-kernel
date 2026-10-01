@@ -1728,6 +1728,9 @@ enum bpf_sig_keyring {
 };
 
 struct bpf_prog_aux {
+#ifdef CONFIG_BPF_EPASS
+	struct bpf_epass_info *epass;	/* ePass output, until the verifier ran */
+#endif
 	atomic64_t refcnt;
 	u32 used_map_cnt;
 	u32 used_btf_cnt;

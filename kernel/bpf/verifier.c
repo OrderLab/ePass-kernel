@@ -11,6 +11,7 @@
 #include <linux/bpf.h>
 #include <linux/btf.h>
 #include <linux/bpf_verifier.h>
+#include <linux/bpf_epass.h>
 #include <linux/filter.h>
 #include <net/netlink.h>
 #include <linux/file.h>
@@ -20023,6 +20024,24 @@ int bpf_fixup_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	return 0;
 }
 
+#ifdef CONFIG_BPF_EPASS
+/* The helper prototype the verifier will check a call against (for ePass,
+ * which runs before the verifier and needs helper arities).
+ */
+const struct bpf_func_proto *bpf_epass_func_proto(enum bpf_func_id id,
+						  const struct bpf_prog *prog)
+{
+	const struct bpf_verifier_ops *ops;
+
+	if (prog->type >= ARRAY_SIZE(bpf_verifier_ops))
+		return NULL;
+	ops = bpf_verifier_ops[prog->type];
+	if (!ops || !ops->get_func_proto)
+		return NULL;
+	return ops->get_func_proto(id, prog);
+}
+#endif
+
 int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	      struct bpf_log_attr *attr_log)
 {
@@ -20078,6 +20097,7 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	ret = bpf_vlog_init(&env->log, attr_log->level, attr_log->ubuf, attr_log->size);
 	if (ret)
 		goto err_unlock;
+
 
 	ret = process_fd_array(env, attr, uattr);
 	if (ret)
@@ -20234,6 +20254,10 @@ skip_full_check:
 
 	env->verification_time = ktime_get_ns() - start_time;
 	print_verification_stats(env);
+	/* what ePass did to the program (after the verifier's own log, which a
+	 * successful level-1 run resets)
+	 */
+	bpf_epass_log(env);
 	env->prog->aux->verified_insns = env->insn_processed;
 
 	/* preserve original error even if log finalization is successful */

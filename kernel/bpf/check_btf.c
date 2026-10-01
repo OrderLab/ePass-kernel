@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2026 Meta Platforms, Inc. and affiliates. */
+#include <linux/bpf_epass.h>
 #include <linux/bpf.h>
 #include <linux/bpf_verifier.h>
 #include <linux/filter.h>
@@ -248,6 +249,8 @@ static int check_btf_line(struct bpf_verifier_env *env,
 	s = 0;
 	sub = env->subprog_info;
 	ulinfo = make_bpfptr(attr->line_info, uattr.is_kernel);
+	/* line_info remapped to a program ePass rewrote (never more records) */
+	bpf_epass_line_info(prog, &ulinfo, &nr_linfo);
 	expected_size = sizeof(struct bpf_line_info);
 	ncopy = min_t(u32, expected_size, rec_size);
 	for (i = 0; i < nr_linfo; i++) {
